@@ -14,9 +14,27 @@ export default function ArenaPage() {
       
       {/* التوهج الأخضر */}
       <div className="absolute bottom-[50%] right-[-100px] w-[320px] h-[320px] rotate-[48.029deg] rounded-full bg-[rgba(41,255,100,0.12)] blur-[70.75px] pointer-events-none" />
+      <div className="absolute top-[70%] right-[50px] w-[320px] h-[320px] rotate-[48.029deg] rounded-full bg-[rgba(255,39,240,0.44)] blur-[70.75px] pointer-events-none" />
+
+
+  {/* --- الخط الأخضر المتعرج --- */}
+      {/* يظهر فقط إذا كنا في تبويب "الساحات" */}
+      {activeTab === 'all' && (
+        <div className="absolute top-[250px] z-0 opacity-50 animate-fade-in">
+          <svg xmlns="http://www.w3.org/2000/svg" width="1105" height="1424" viewBox="0 0 1105 1424" fill="none">
+            <path 
+              d="M55 5.5H1088.5C1094.58 5.5 1099.5 10.4249 1099.5 16.5V415.5C1099.5 421.575 1094.58 426.5 1088.5 426.5H16.5C10.4248 426.5 5.5 431.425 5.5 437.5V898.5C5.5 904.575 10.4249 909.5 16.5 909.5H1088.5C1094.58 909.5 1099.5 914.425 1099.5 920.5V1407.5C1099.5 1413.58 1094.58 1418.5 1088.5 1418.5H59" 
+              stroke="#29FF64" 
+              strokeOpacity="0.25" 
+              strokeWidth="11" 
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      )}
 
       {/* --- حاوية الأزرار (The Tabs) --- */}
-      <div className="z-10 flex gap-4 mb-16">
+<div className="z-10 flex gap-4 mb-16">
   
   {/* زر الساحات */}
   <button
@@ -56,17 +74,30 @@ export default function ArenaPage() {
 
 </div>
 
-      {/* --- منطقة عرض المحتوى (Content Area) --- */}
-      <div className="z-10 w-full max-w-[1200px] px-8 text-right">
-        {activeTab === 'all' ? (
-          <h2 className="text-white text-2xl mb-8">أشهر الساحات</h2>
-        ) : ("")}
-        
-        {/* هنا بنحط الـ Grid حق الكروت لاحقاً */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {/* الكروت بتجي هنا */}
+      {/* --- المربع الأخضر مع العبارة --- */}
+      {/* يظهر فقط في صفحة "الساحات" */}
+      {activeTab === 'all' && (
+        <div className="z-10 flex items-center justify-center w-[600px] h-[120px] rounded-[13px] border-[6px] border-[#29FF64] bg-[#020C1F] shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-118 animate-fade-in">
+          <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
+            <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة </span>
+            <span className="font-[1000]" style={{ textShadow: '0 3px 0 #FF27F0' }}>دون دفعة من التهور؟</span>
+          </h2>
         </div>
+      )}
+
+      {/* --- منطقة الكروت --- */}
+      <div className="z-10 w-full max-w-[1200px] px-8 py-10">
+        {activeTab === 'all' ? (
+          <div className="grid grid-cols-3 gap-y-12 gap-x-6">
+            {/* هنا كروت كل الساحات */}
+          </div>
+        ) : (
+<div className="grid grid-cols-3 gap-y-12 gap-x-6">
+             {/* هنا كروت ساحاتي فقط (بدون الخلفية والعبارة) */}
+          </div>
+        )}
       </div>
+
     </main>
   );
 }
