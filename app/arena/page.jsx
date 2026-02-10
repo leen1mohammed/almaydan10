@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import Navbar from "@/components/Navbar";
+import ArenaCard from '../../components/ArenaCard';
 
 export default function ArenaPage() {
   const [activeTab, setActiveTab] = useState('all'); // 'all' أو 'my-arenas'
@@ -20,7 +20,7 @@ export default function ArenaPage() {
   {/* --- الخط الأخضر المتعرج --- */}
       {/* يظهر فقط إذا كنا في تبويب "الساحات" */}
       {activeTab === 'all' && (
-        <div className="absolute top-[250px] z-0 opacity-50 animate-fade-in">
+        <div className="absolute top-[420px] z-0 scale-110 opacity-50 animate-fade-in">
           <svg xmlns="http://www.w3.org/2000/svg" width="1105" height="1424" viewBox="0 0 1105 1424" fill="none">
             <path 
               d="M55 5.5H1088.5C1094.58 5.5 1099.5 10.4249 1099.5 16.5V415.5C1099.5 421.575 1094.58 426.5 1088.5 426.5H16.5C10.4248 426.5 5.5 431.425 5.5 437.5V898.5C5.5 904.575 10.4249 909.5 16.5 909.5H1088.5C1094.58 909.5 1099.5 914.425 1099.5 920.5V1407.5C1099.5 1413.58 1094.58 1418.5 1088.5 1418.5H59" 
@@ -76,27 +76,45 @@ export default function ArenaPage() {
 
       {/* --- المربع الأخضر مع العبارة --- */}
       {/* يظهر فقط في صفحة "الساحات" */}
-      {activeTab === 'all' && (
-        <div className="z-10 flex items-center justify-center w-[600px] h-[120px] rounded-[13px] border-[6px] border-[#29FF64] bg-[#020C1F] shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-118 animate-fade-in">
-          <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
-            <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة </span>
-            <span className="font-[1000]" style={{ textShadow: '0 3px 0 #FF27F0' }}>دون دفعة من التهور؟</span>
-          </h2>
-        </div>
-      )}
+      {/* --- منطقة المحتوى (تظهر فقط في "الساحات") --- */}
+{activeTab === 'all' && (
+  <div className="z-10 w-full max-w-[1200px] flex flex-col items-center">
+    
+    {/* 1. الصف العلوي من الكروت (مثلاً أول 3 كروت) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
+      <ArenaCard name="رابطة VK Gaming" image="/images/warzone.png" logo="/images/logo.png" />
+      <ArenaCard name="مجتمع Valorant" image="/images/valorant.png" logo="/images/logo2.png" />
+      <ArenaCard name="محبين LOL" image="/images/lol.png" logo="/images/logo3.png" />
+    </div>
 
-      {/* --- منطقة الكروت --- */}
-      <div className="z-10 w-full max-w-[1200px] px-8 py-10">
-        {activeTab === 'all' ? (
-          <div className="grid grid-cols-3 gap-y-12 gap-x-6">
-            {/* هنا كروت كل الساحات */}
-          </div>
-        ) : (
-<div className="grid grid-cols-3 gap-y-12 gap-x-6">
-             {/* هنا كروت ساحاتي فقط (بدون الخلفية والعبارة) */}
-          </div>
-        )}
-      </div>
+    {/* 2. المربع الأخضر في المنتصف */}
+    <div className="flex items-center justify-center w-[798px] h-[163px] rounded-[13px] border-[6px] border-[#29FF64] bg-[#020C1F]
+     shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-40">
+      <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
+        <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة</span>
+        <span> </span>
+        <span className="font-[1000]" style={{ textShadow: '0 3px 0 #FF27F0' }}>دون دفعة من التهور؟ </span>
+      </h2>
+    </div>
+
+    {/* 3. الصف السفلي من الكروت (بقية الكروت) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
+      <ArenaCard name="ساحة المحترفين" image="/images/pro.png" logo="/images/logo4.png" />
+      <ArenaCard name="أساطير فيفا" image="/images/fifa.png" logo="/images/logo5.png" />
+      <ArenaCard name="تحدي العرب" image="/images/arab.png" logo="/images/logo6.png" />
+    </div>
+
+  </div>
+)}
+
+{/* --- منطقة "ساحاتي" (تظهر بدون المربع والتقسيم) --- */}
+{activeTab === 'my-arenas' && (
+  <div className="z-10 w-full max-w-[1200px] grid grid-cols-3 gap-12 px-8">
+     <ArenaCard name="ساحتي المنضم إليها" image="/images/my.png" logo="/images/logo.png" />
+     <ArenaCard name="ساحة المحترفين" image="/images/pro.png" logo="/images/logo4.png" />
+      <ArenaCard name="أساطير فيفا" image="/images/fifa.png" logo="/images/logo5.png" />
+  </div>
+)}
 
     </main>
   );

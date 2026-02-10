@@ -57,7 +57,7 @@ export default function ArenaCard({ name, image, logo }) {
         <div className="mt-6 flex items-center gap-1 opacity-70">
            <div className="w-6 h-6 rounded-full bg-gray-600 border border-pink-500"></div>
            <div className="w-6 h-6 rounded-full bg-gray-500 border border-pink-500 -ml-2"></div>
-           <span className="text-[12px] text-white mr-2">479 لاعب</span>
+           <div className="text-[12px] text-white mr-2">479 لاعب</div>
         </div>
       </div>
     </div>
