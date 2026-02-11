@@ -264,27 +264,27 @@ export default function ArenaSection() {
 
   const arenas = [
     {
-      image: "/images/warzone.jpg",
+      image: "/images/cardsImg/warzone.jpg",
       title: "مجتمع Call of Duty",
       members: "479",
     },
     {
-      image: "/images/lol.jpg",
+      image: "/images/cardsImg/lol.jpg",
       title: "League of Legends",
       members: "320",
     },
     {
-      image: "/images/valorant.jpg",
+      image: "/images/cardsImg/valorant.jpg",
       title: "Valorant",
       members: "280",
     },
     {
-      image: "/images/fifa.png",
+      image: "/images/cardsImg/fifa.png",
       title: "FIFA",
       members: "210",
     },
     {
-      image: "/images/pubg.jpg",
+      image: "/images/cardsImg/pubg.jpg",
       title: "PUBG",
       members: "190",
     },

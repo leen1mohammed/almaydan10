@@ -1,3 +1,5 @@
+"use client";
+
 import styled, { keyframes } from "styled-components";
 
 /* ===============================
@@ -6,20 +8,20 @@ import styled, { keyframes } from "styled-components";
 
 const float = keyframes`
   0% {
-    transform: translateY(0);
+    transform: translateY(0) translateX(0);
   }
 
   50% {
-    transform: translateY(-15px);
+    transform: translateY(-15px) translateX(5px);
   }
 
   100% {
-    transform: translateY(0);
+    transform: translateY(0) translateX(0);
   }
 `;
 
 /* ===============================
-   Main Container
+   Hero Container
 ================================ */
 
 const Hero = styled.section`
@@ -39,8 +41,6 @@ const Hero = styled.section`
   justify-content: center;
   align-items: center;
 
-  font-family: "Cairo", sans-serif;
-
   padding: 60px;
   box-sizing: border-box;
 
@@ -50,7 +50,7 @@ const Hero = styled.section`
 `;
 
 /* ===============================
-   Effects
+   Background Effects
 ================================ */
 
 const Effects = styled.div`
@@ -161,7 +161,7 @@ const Circle = styled.img`
 `;
 
 /* ===============================
-   Wrapper
+   Main Wrapper
 ================================ */
 
 const Wrapper = styled.div`
@@ -205,7 +205,7 @@ const LogoBox = styled.div`
 `;
 
 /* ===============================
-   Content
+   Text Content
 ================================ */
 
 const Content = styled.div`
@@ -258,9 +258,9 @@ export default function HeroSection() {
         <PinkLight2 />
 
         {/* Shapes */}
-        <Triangle src="/images/shapes/triangle.png" alt="triangle" />
-        <Square src="/images/shapes/square.png" alt="square" />
-        <Circle src="/images/shapes/circle.png" alt="circle" />
+        <Triangle src="/images/triangle.png" alt="" />
+        <Square src="/images/square.png" alt="" />
+        <Circle src="/images/circle.png" alt="" />
 
       </Effects>
 
@@ -268,7 +268,7 @@ export default function HeroSection() {
       <Wrapper>
 
         <LogoBox>
-          <img src="/images/logos/almaydanLogo.svg" alt="logo" />
+          <img src="/images/almaydanLogo.svg" alt="logo" />
         </LogoBox>
 
         <Content>
