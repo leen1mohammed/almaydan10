@@ -16,27 +16,27 @@ export default function Footer() {
   /* أيقونات السوشيال */
   const socials = [
     {
-      icon: "/images/footerIcons/linkedin.svg",
+      icon: "/images/icons/linkedin.svg",
       alt: "LinkedIn",
       href: "#",
     },
     {
-      icon: "/images/footerIcons/facebook.svg",
+      icon: "/images/icons/facebook.svg",
       alt: "Facebook",
       href: "#",
     },
     {
-      icon: "/images/footerIcons/instagram.svg",
+      icon: "/images/icons/instagram.svg",
       alt: "Instagram",
       href: "#",
     },
     {
-      icon: "/images/footerIcons/xApp.svg",
+      icon: "/images/icons/xApp.svg",
       alt: "X",
       href: "#",
     },
     {
-      icon: "/images/footerIcons/youtube.svg",
+      icon: "/images/icons/youtube.svg",
       alt: "YouTube",
       href: "#",
     },
@@ -66,7 +66,7 @@ export default function Footer() {
         {/* اللوقو */}
         <div className="logo">
           <img
-            src="/images/footerIcons/almaydanFooter.svg"
+            src="/images/logos/almaydanFooter.svg"
             alt="Almaydan footer"
           />
         </div>
