@@ -1,8 +1,9 @@
 'use client'; // ضروري لاستخدام الـ Hooks
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import {authService} from "@/services/authService"
 
 const LogoSVG = () => (
   <div className="w-[69px] h-[39px] flex-shrink-0">
@@ -60,14 +61,40 @@ const LiveDotSVG = () => (
 
 export default function Navbar() {
   const router = useRouter();
-
-  // --- حالات تجريبية (يتم ربطها لاحقاً بـ Supabase) ---
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // الحالة 1: هل سجل دخول؟
+  const [user, setUser] = useState(null); // الحالة 1: هل سجل دخول؟
   const [isAdmin, setIsAdmin] = useState(false);       // الحالة 3: هل هو أدمن؟
+  const[loading,setLoading]=useState(true)
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
+
+      if (currentUser?.userName) {
+        const isAdminUser = await authService.checkIsAdmin(currentUser.userName);
+        setIsAdmin(isAdminUser);
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+
+    // الاستماع للتغييرات عبر السيرفس
+    const { data: authListener } = authService.onAuthChange((event, session) => {
+        if(event==='SIGNED_OUT'){
+            setUser(NULL)
+            setIsAdmin(false);}
+            else if(session?.user){
+                initAuth();
+            }
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
 
   // دالة حماية الروابط (شرط 1)
-  const handleProtectedAction = (e, path) => {
-    if (!isLoggedIn) {
+  const handleProtectedAction = (e) => {
+    if (!user) {
       e.preventDefault(); // منع الانتقال للرابط
       router.push("/login"); // التوجيه لصفحة تسجيل الدخول
     }
@@ -148,11 +175,11 @@ export default function Navbar() {
         <div className="flex items-center gap-4 justify-self-start">
           {/* صورة البروفايل (شرط 1 و 2) */}
           <div 
-            onClick={(e) => isLoggedIn ? router.push("/profile") : router.push("/login")}
+            onClick={() => user ? router.push("/profile") : router.push("/login")}
             className="w-[49px] h-[49px] rounded-full border-2 border-[#722ED1] hover:border-esport-primary transition-all cursor-pointer overflow-hidden relative"
           >
             <Image
-              src={isLoggedIn ? "https://placehold.co/100" : "/default-avatar.png"} // صورة افتراضية لو لم يسجل
+              src={user ? "https://placehold.co/100" : "/default-avatar.png"} // صورة افتراضية لو لم يسجل
               alt="User"
               fill
               className="object-cover"

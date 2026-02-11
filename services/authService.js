@@ -1,5 +1,8 @@
 import { supabase } from "../lib/supabase";
 
+
+//const supabase = createClientComponentClient();
+
 export const registerUser=async (email,password,userName,fullName) => {
     const{data:authData,error:authError}=await supabase.auth.signUp({
         email:email,
@@ -45,25 +48,6 @@ export const registerUser=async (email,password,userName,fullName) => {
   }
 };
 
-   /* if(!error && data.user){
-        const{error: dbError}=await supabase.from('Member').insert([
-            {
-                userName:userName,
-                name:fullName,
-                email:email,
-                password:password
-            }
-
-        ]);
-
-        if(dbError){
-            return{success:false, message:"فشل حفظ بيانات الممبر" + dbError.message}
-        }
-
-    }
-    return{data,error,success:!error};
-
-}*/
 
 export const checkUsername=async(userName)=>{
     const{data,error}=await supabase.from('Member').select('userName').eq('userName',userName).single()
@@ -89,3 +73,56 @@ export const loginUser=async(userName,password)=>{
     }
     return{success:true,data};
 };
+
+//
+
+
+// تعريفه مرة واحدة فقط هنا!
+//const supabase = createClientComponentClient();
+export const authService = {
+  // 1. جلب بيانات العضو المسجل
+  getCurrentUser: async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) return null;
+
+      // نجيب الـ userName من جدول Member باستخدام الـ email
+      const { data: memberData } = await supabase
+        .from('Member')
+        .select('userName')
+        .eq('email', user.email) 
+        .single();
+
+      return memberData ? { ...user, userName: memberData.userName } : user;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // 2. التحقق هل هو "أدمن" من جدول Admin
+  checkIsAdmin: async (userName) => {
+    if (!userName) return false;
+    const { data } = await supabase
+      .from('Admin')
+      .select('AuserName')
+      .eq('AuserName', userName)
+      .single();
+    return !!data; 
+  },
+
+  // 3. التحقق هل هو "مستخدم عادي" من جدول Participant
+  checkIsParticipant: async (userName) => {
+    if (!userName) return false;
+    const { data } = await supabase
+      .from('Participant')
+      .select('PuserName')
+      .eq('PuserName', userName)
+      .single();
+    return !!data;
+  },
+
+  onAuthChange: (callback) => {
+    return supabase.auth.onAuthStateChange(callback);
+  }
+}
+
