@@ -1,6 +1,7 @@
 "use client";
 
 import styled from "styled-components";
+import {useRouter} from "next/navigation";
 
 /* ===============================
    Wrapper
@@ -209,7 +210,9 @@ const Button = styled.button`
   }
 `;
 
-/* ===============================
+/* ==========
+
+=====================
    Lights
 ================================ */
 
@@ -277,7 +280,7 @@ export default function CampSection() {
         {/* Chair */}
         <Chair>
           <img
-            src="/images/gamingChair.png"
+            src="/images/img3D/gamingChair.png"
             alt="Gaming Chair"
           />
         </Chair>
@@ -291,7 +294,7 @@ export default function CampSection() {
 
           <Text3>حيث تصنع التحالفات ..</Text3>
 
-          <Button>
+          <Button >
             <span>الـمـعـسـكـر</span>
           </Button>
 
