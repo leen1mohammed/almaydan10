@@ -375,9 +375,9 @@ export default function ArenaSection() {
 
         <WarTools src="/images/img3D/warTools.png" />
 
-        <Triangle src="/images/img3D/triangle.png" />
+        <Triangle src="/images/shapes/triangle.png" />
 
-        <Circle src="/images/img3D/circle.png" />
+        <Circle src="/images/shapes/circle.png" />
 
       </Floating>
 
