@@ -8,110 +8,113 @@ import { authService } from "@/services/authService";
 export default function CreateCampPage() {
   const router = useRouter();
 
-  // حالات الفورم
   const [campName, setCampName] = useState("");
-  const [description, setDescription] = useState("");
-  const [pic, setPic] = useState("");
-  const [friendInput, setFriendInput] = useState("");
-  const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
+  const [campImage, setCampImage] = useState<File | null>(null);
+  const [friends, setFriends] = useState<string[]>([""]);
   const [loading, setLoading] = useState(false);
 
-  // إضافة صديق للقائمة
   const handleAddFriend = () => {
-    if (friendInput.trim() !== "") {
-      setInvitedFriends([...invitedFriends, friendInput.trim()]);
-      setFriendInput("");
-    }
+    setFriends([...friends, ""]);
   };
 
-  // إنشاء المعسكر
+  const handleFriendChange = (index: number, value: string) => {
+    const updated = [...friends];
+    updated[index] = value;
+    setFriends(updated);
+  };
+
   const handleCreateCamp = async () => {
-    try {
-      setLoading(true);
+    if (!campName.trim()) return;
+    setLoading(true);
 
-      // 1️⃣ جلب المستخدم الحالي
-      const currentUser = await authService.getCurrentUser();
-      if (!currentUser || !currentUser.email) {
-        router.push("/login");
-        return;
+    const currentUser = await authService.getCurrentUser();
+    if (!currentUser) return;
+
+    const { data: memberData, error: memberError } = await supabase
+  .from("Member")
+  .select("userName")
+  .eq("email", currentUser.email)
+  .single();
+
+if (memberError || !memberData) {
+  console.error("Error fetching memberData:", memberError);
+  setLoading(false);
+  return;
+}
+
+const creatorUserName = memberData.userName;
+
+
+    // 🖼️ رفع صورة المعسكر إلى Storage
+    let imageUrl = "";
+
+    if (campImage) {
+      const fileExt = campImage.name.split(".").pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("camp-images")
+        .upload(fileName, campImage);
+
+      if (!uploadError) {
+        const { data: publicUrl } = supabase.storage
+          .from("camp-images")
+          .getPublicUrl(fileName);
+
+        imageUrl = publicUrl.publicUrl;
       }
+    }
 
-      // 2️⃣ استخراج userName من Member
-      const { data: memberData, error: memberError } = await supabase
-        .from("Member")
-        .select("userName")
-        .eq("email", currentUser.email)
-        .single();
+    // 🏕 إنشاء المعسكر
+    const { data: campData, error: campError } = await supabase
+      .from("Camp")
+      .insert([
+        {
+          name: campName,
+          description: "",
+          pic: imageUrl,
+          creatorID: creatorUserName,
+        },
+      ])
+      .select()
+      .single();
 
-        if (memberError || !memberData) {
-        console.error("Failed to fetch member username");
-        router.push("/login");
-        return;
-        }
+    if (campError) {
+      setLoading(false);
+      return;
+    }
 
-        const creatorUserName = memberData.userName;
+    const campId = campData.id;
 
+    // 👥 إضافة المنشئ كـ participant
+    await supabase.from("CampParticipants").insert([
+      {
+        campId: campId,
+        pUserName: creatorUserName,
+        joinedAt: new Date().toISOString(),
+      },
+    ]);
 
-      // 3️⃣ إنشاء المعسكر
-      const { data: campData, error: campError } = await supabase
-        .from("Camp")
-        .insert([
-          {
-            name: campName,
-            description: description,
-            pic: pic,
-            creatorID: creatorUserName,
-          },
-        ])
-        .select()
-        .single();
+    // 📩 إضافة الأصدقاء المدعوين
+    const invitedFriends = friends.filter((f) => f.trim() !== "");
 
-      if (campError) {
-        console.error("خطأ في إنشاء المعسكر:", campError.message);
-        return;
-      }
-
-      const campId = campData.id;
-
-      // 4️⃣ إضافة المنشئ كأول عضو
+    for (const friendUserName of invitedFriends) {
       await supabase.from("CampParticipants").insert([
         {
           campId: campId,
-          pUserName: creatorUserName,
+          pUserName: friendUserName,
+          joinedAt: new Date().toISOString(),
         },
       ]);
-
-      // 5️⃣ إضافة الأصدقاء المدعوين
-      for (const friend of invitedFriends) {
-        // تحقق أن الصديق Participant
-        const { data: participant } = await supabase
-          .from("Participant")
-          .select("PuserName")
-          .eq("PuserName", friend)
-          .maybeSingle();
-
-        if (participant) {
-          await supabase.from("CampParticipants").insert([
-            {
-              campId: campId,
-              pUserName: friend,
-            },
-          ]);
-        }
-      }
-
-      // 6️⃣ الانتقال لصفحة المعسكر
-      router.push(`/camp/${campId}`);
-    } catch (err) {
-      console.error("Unexpected Error:", err);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
+    router.push(`/camp/${campId}`);
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-[420px] rounded-3xl border border-purple-500 p-6 bg-[#0b0f2a] shadow-[0_0_30px_rgba(168,85,247,0.4)]">
+    <div className="min-h-screen flex items-center justify-center text-white">
+      <div className="w-[400px] bg-[#0B0F2A] border border-purple-600 rounded-3xl p-6 shadow-lg space-y-4">
         
         {/* اسم المعسكر */}
         <input
@@ -119,59 +122,52 @@ export default function CreateCampPage() {
           placeholder="اسم المعسكر..."
           value={campName}
           onChange={(e) => setCampName(e.target.value)}
-          className="w-full mb-4 rounded-full bg-transparent border border-purple-500 px-4 py-2 text-white outline-none"
+          className="w-full rounded-full px-4 py-3 bg-transparent border border-purple-500 outline-none"
         />
 
-        {/* صورة المعسكر */}
+        {/* رفع صورة المعسكر */}
         <input
-          type="text"
-          placeholder="رابط صورة المعسكر"
-          value={pic}
-          onChange={(e) => setPic(e.target.value)}
-          className="w-full mb-4 rounded-full bg-transparent border border-purple-500 px-4 py-2 text-white outline-none"
+          type="file"
+          accept="image/*"
+          onChange={(e) => setCampImage(e.target.files?.[0] || null)}
+          className="w-full rounded-full px-4 py-3 bg-transparent border border-purple-500 outline-none"
         />
 
-        {/* إضافة صديق */}
-        <div className="flex gap-2 mb-4">
+        {/* Preview للصورة */}
+        {campImage && (
+          <img
+            src={URL.createObjectURL(campImage)}
+            className="w-24 h-24 object-cover rounded-full mx-auto"
+          />
+        )}
+
+        {/* دعوة الأصدقاء */}
+        {friends.map((friend, index) => (
           <input
+            key={index}
             type="text"
             placeholder="اكتب اسم صديق..."
-            value={friendInput}
-            onChange={(e) => setFriendInput(e.target.value)}
-            className="flex-1 rounded-full bg-transparent border border-purple-500 px-4 py-2 text-white outline-none"
+            value={friend}
+            onChange={(e) => handleFriendChange(index, e.target.value)}
+            className="w-full rounded-full px-4 py-3 bg-transparent border border-purple-500 outline-none"
           />
-          <button
-            onClick={handleAddFriend}
-            className="bg-purple-600 px-4 rounded-full text-white"
-          >
-            +
-          </button>
-        </div>
+        ))}
 
-        {/* عرض الأصدقاء المدعوين */}
-        <div className="mb-6 text-sm text-purple-300">
-          {invitedFriends.map((friend, index) => (
-            <div key={index}>• {friend}</div>
-          ))}
-        </div>
+        <button
+          onClick={handleAddFriend}
+          className="w-full py-2 bg-purple-700 rounded-full"
+        >
+          + إضافة صديق
+        </button>
 
-        {/* الأزرار */}
-        <div className="flex justify-between">
-          <button
-            onClick={() => router.push("/camp")}
-            className="bg-red-600 px-4 py-2 rounded-full text-white"
-          >
-            خروج
-          </button>
-
-          <button
-            onClick={handleCreateCamp}
-            disabled={loading}
-            className="bg-purple-600 px-6 py-2 rounded-full text-white"
-          >
-            {loading ? "جارٍ الإنشاء..." : "إنشاء"}
-          </button>
-        </div>
+        {/* إنشاء */}
+        <button
+          onClick={handleCreateCamp}
+          disabled={loading}
+          className="w-full py-3 bg-purple-600 rounded-full"
+        >
+          {loading ? "جارٍ الإنشاء..." : "إنشاء"}
+        </button>
       </div>
     </div>
   );

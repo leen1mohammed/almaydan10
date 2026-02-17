@@ -1,61 +1,77 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
 
-export default async function CampEntryPage() {
-  // 1️⃣ جلب المستخدم الحالي (من authService)
-  const currentUser = await authService.getCurrentUser();
+export default function CampEntryPage() {
+  const router = useRouter();
 
-  if (!currentUser || !currentUser.email) {
-    redirect("/login");
-  }
+  useEffect(() => {
+    const routeUser = async () => {
+      // 1️⃣ جلب المستخدم الحالي من الـ session
+      const currentUser = await authService.getCurrentUser();
 
-  // 2️⃣ جلب userName رسميًا من جدول Member باستخدام email
-  const { data: memberData, error: memberError } = await supabase
-    .from("Member")
-    .select("userName")
-    .eq("email", currentUser.email)
-    .single();
+      if (!currentUser || !currentUser.email) {
+        router.push("/login");
+        return;
+      }
 
-  if (memberError || !memberData) {
-    redirect("/login");
-  }
+      // 2️⃣ جلب userName من Member
+      const { data: memberData } = await supabase
+        .from("Member")
+        .select("userName")
+        .eq("email", currentUser.email)
+        .single();
 
-  const userName = memberData.userName;
+      if (!memberData) {
+        router.push("/login");
+        return;
+      }
 
-  // 3️⃣ تحقق هل Admin
-  const { data: adminData } = await supabase
-    .from("Admin")
-    .select("AuserName")
-    .eq("AuserName", userName)
-    .maybeSingle();
+      const userName = memberData.userName;
 
-  if (adminData) {
-    redirect("/"); // الأدمن ممنوع من المعسكرات
-  }
+      // 3️⃣ تحقق هل Admin
+      const { data: adminData } = await supabase
+        .from("Admin")
+        .select("AuserName")
+        .eq("AuserName", userName)
+        .maybeSingle();
 
-  // 4️⃣ تحقق هل Participant
-  const { data: participantData } = await supabase
-    .from("Participant")
-    .select("PuserName")
-    .eq("PuserName", userName)
-    .maybeSingle();
+      if (adminData) {
+        router.push("/");
+        return;
+      }
 
-  if (!participantData) {
-    redirect("/"); // فقط المشاركين يقدرون يدخلون
-  }
+      // 4️⃣ تحقق هل Participant
+      const { data: participantData } = await supabase
+        .from("Participant")
+        .select("PuserName")
+        .eq("PuserName", userName)
+        .maybeSingle();
 
-  // 5️⃣ تحقق هل المستخدم أنشأ معسكر مسبقًا
-  const { data: camp } = await supabase
-    .from("Camp")
-    .select("id")
-    .eq("creatorID", userName)
-    .maybeSingle();
+      if (!participantData) {
+        router.push("/");
+        return;
+      }
 
-  // 6️⃣ التوجيه حسب الحالة
-  if (camp) {
-    redirect(`/camp/${camp.id}`);
-  } else {
-    redirect("/camp/create");
-  }
+      // 5️⃣ هل عنده معسكر؟
+      const { data: camp } = await supabase
+        .from("Camp")
+        .select("id")
+        .eq("creatorID", userName)
+        .maybeSingle();
+
+      if (camp) {
+        router.push(`/camp/${camp.id}`);
+      } else {
+        router.push("/camp/create");
+      }
+    };
+
+    routeUser();
+  }, [router]);
+
+  return null; // صفحة بوابة فقط بدون UI
 }
