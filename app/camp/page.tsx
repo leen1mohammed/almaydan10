@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * الملف: app/camp/page.tsx
+ * الدور: بوابة المعسكر (Entry) تقرر أين تودّي المستخدم بناءً على حالته.
+ *
+ * يرتبط بـ:
+ * - authService.getCurrentUser()
+ * - جداول Supabase: Member, Admin, Participant, CampParticipants
+ * - صفحات:
+ *   - /camp/[id] (إذا عنده معسكر)
+ *   - /camp/empty (إذا ما عنده معسكر)
+ *   - /login (إذا مو مسجل)
+ */
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -10,68 +23,70 @@ export default function CampEntryPage() {
 
   useEffect(() => {
     const routeUser = async () => {
-      // 1️⃣ جلب المستخدم الحالي من الـ session
-      const currentUser = await authService.getCurrentUser();
+      try {
+        // 1) التحقق من تسجيل الدخول
+        const currentUser = await authService.getCurrentUser();
+        if (!currentUser?.email) {
+          router.replace("/login");
+          return;
+        }
 
-      if (!currentUser || !currentUser.email) {
-        router.push("/login");
-        return;
-      }
+        // 2) جلب userName من Member باستخدام email
+        const { data: memberData, error: memberError } = await supabase
+          .from("Member")
+          .select("userName")
+          .eq("email", currentUser.email)
+          .single();
 
-      // 2️⃣ جلب userName من Member
-      const { data: memberData } = await supabase
-        .from("Member")
-        .select("userName")
-        .eq("email", currentUser.email)
-        .single();
+        if (memberError || !memberData?.userName) {
+          console.error("Member fetch error:", memberError);
+          router.replace("/login");
+          return;
+        }
 
-      if (!memberData) {
-        router.push("/login");
-        return;
-      }
+        const userName = memberData.userName;
 
-      const userName = memberData.userName;
+        // 3) استعلامات متوازية لتسريع القرار
+        const [adminCheck, participantCheck, membershipCheck] = await Promise.all([
+          supabase.from("Admin").select("AuserName").eq("AuserName", userName).maybeSingle(),
+          supabase.from("Participant").select("PuserName").eq("PuserName", userName).maybeSingle(),
+          supabase
+            .from("CampParticipants")
+            .select("campId")
+            .eq("pUserName", userName)
+            .maybeSingle(),
+        ]);
 
-      // 3️⃣ تحقق هل Admin
-      const { data: adminData } = await supabase
-        .from("Admin")
-        .select("AuserName")
-        .eq("AuserName", userName)
-        .maybeSingle();
+        // 4) منع الأدمن
+        if (adminCheck.data) {
+          router.replace("/");
+          return;
+        }
 
-      if (adminData) {
-        router.push("/");
-        return;
-      }
+        // 5) السماح فقط للمشاركين
+        if (!participantCheck.data) {
+          router.replace("/");
+          return;
+        }
 
-      // 4️⃣ تحقق هل Participant
-      const { data: participantData } = await supabase
-        .from("Participant")
-        .select("PuserName")
-        .eq("PuserName", userName)
-        .maybeSingle();
-
-      if (!participantData) {
-        router.push("/");
-        return;
-      }
-
-      // 5️⃣ هل عنده معسكر؟
-      const { data: camp } = await supabase
-        .from("Camp")
-        .select("id")
-        .eq("creatorID", userName)
-        .maybeSingle();
-
-      if (camp) {
-        router.push(`/camp/${camp.id}`);
-      } else {
-        router.push("/camp/create");
+        // 6) إذا عنده campId → صفحة المعسكر، وإلا → صفحة Empty
+        if (membershipCheck.data?.campId) {
+          router.replace(`/camp/${membershipCheck.data.campId}`);
+        } else {
+          router.replace("/camp/empty");
+        }
+      } catch (err) {
+        console.error("Camp routing error:", err);
+        router.replace("/");
       }
     };
 
     routeUser();
   }, [router]);
 
-  return null; // صفحة بوابة فقط بدون UI
+  return (
+    <div className="min-h-screen flex items-center justify-center text-white">
+      <div className="animate-pulse text-purple-400 text-lg">جاري تجهيز المعسكر...</div>
+    </div>
+  );
 }
