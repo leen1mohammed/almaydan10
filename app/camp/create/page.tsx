@@ -251,11 +251,13 @@ export default function CreateCampPage() {
        * المدخلات: creatorUserName
        * المخرجات: إما توجيه إلى /camp/[id] أو السماح بإنشاء جديد
        */
-      const { data: existingMembership, error: membershipErr } = await supabase
-        .from("CampParticipants")
-        .select("campId")
-        .eq("pUserName", creatorUserName)
-        .maybeSingle();
+          const { data: existingMembership, error: membershipErr } = await supabase
+      .from("CampParticipants")
+      .select("campId")
+      .eq("pUserName", creatorUserName)
+      .order("joinedAt", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
       if (membershipErr) {
         console.error("Membership check error:", membershipErr);
