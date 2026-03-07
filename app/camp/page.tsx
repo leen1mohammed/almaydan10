@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * الملف: app/camp/page.tsx
- * الدور: بوابة المعسكر (Entry) تقرر أين تودّي المستخدم بناءً على حالته.
- *
- * يرتبط بـ:
- * - authService.getCurrentUser()
- * - جداول Supabase: Member, Admin, Participant, CampParticipants
- * - صفحات:
- *   - /camp/[id] (إذا عنده معسكر)
- *   - /camp/empty (إذا ما عنده معسكر)
- *   - /login (إذا مو مسجل)
- */
-
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -24,59 +11,53 @@ export default function CampEntryPage() {
   useEffect(() => {
     const routeUser = async () => {
       try {
-        // 1) التحقق من تسجيل الدخول
         const currentUser = await authService.getCurrentUser();
         if (!currentUser?.email) {
           router.replace("/login");
           return;
         }
 
-        // 2) جلب userName من Member باستخدام email
-        const { data: memberData, error: memberError } = await supabase
-          .from("Member")
-          .select("userName")
-          .eq("email", currentUser.email)
-          .single();
+        let userName = (currentUser as any)?.userName as string | undefined;
+        if (!userName) {
+          const { data: memberData } = await supabase
+            .from("Member")
+            .select("userName")
+            .eq("email", currentUser.email)
+            .single();
+          userName = memberData?.userName;
+        }
 
-        if (memberError || !memberData?.userName) {
-          console.error("Member fetch error:", memberError);
+        if (!userName) {
           router.replace("/login");
           return;
         }
 
-        const userName = memberData.userName;
+        // فقط Participant
+        const { data: participantRow } = await supabase
+          .from("Participant")
+          .select("PuserName")
+          .eq("PuserName", userName)
+          .maybeSingle();
 
-        // 3) استعلامات متوازية لتسريع القرار
-        const [adminCheck, participantCheck, membershipCheck] = await Promise.all([
-          supabase.from("Admin").select("AuserName").eq("AuserName", userName).maybeSingle(),
-          supabase.from("Participant").select("PuserName").eq("PuserName", userName).maybeSingle(),
-          supabase
-            .from("CampParticipants")
-            .select("campId")
-            .eq("pUserName", userName)
-            .maybeSingle(),
-        ]);
-
-        // 4) منع الأدمن
-        if (adminCheck.data) {
+        if (!participantRow) {
           router.replace("/");
           return;
         }
 
-        // 5) السماح فقط للمشاركين
-        if (!participantCheck.data) {
-          router.replace("/");
-          return;
-        }
+        // هل عنده Camp؟
+        const { data: membership } = await supabase
+          .from("CampParticipants")
+          .select("campId")
+          .eq("pUserName", userName)
+          .maybeSingle();
 
-        // 6) إذا عنده campId → صفحة المعسكر، وإلا → صفحة Empty
-        if (membershipCheck.data?.campId) {
-          router.replace(`/camp/${membershipCheck.data.campId}`);
+        if (membership?.campId) {
+          router.replace(`/camp/${membership.campId}`);
         } else {
           router.replace("/camp/empty");
         }
-      } catch (err) {
-        console.error("Camp routing error:", err);
+      } catch (e) {
+        console.error(e);
         router.replace("/");
       }
     };

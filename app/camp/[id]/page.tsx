@@ -2,22 +2,8 @@
 
 /**
  * الملف: app/camp/[id]/page.tsx
- * الدور: صفحة عرض المعسكر + قائمة الأعضاء + شات المعسكر (Realtime)
- *
- * يرتبط بـ:
- * - Supabase Tables:
- *   - Member: جلب userName من email
- *   - CampParticipants: التحقق من عضوية المستخدم في campId + جلب الأعضاء
- *   - Camp: جلب بيانات المعسكر
- *   - Messages: جلب/إدخال الرسائل + Realtime
- *
- * المدخلات:
- * - campId من رابط الصفحة /camp/[id]
- *
- * المخرجات:
- * - عرض بيانات المعسكر
- * - عرض الأعضاء
- * - عرض الرسائل + إرسال رسالة + تحديث لحظي
+ * الدور: عرض المعسكر + الأعضاء + شات المعسكر (Realtime) + Reply (اقتباس)
+ * مضاف: Debug logs لكل خطوة واستعلام Supabase
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,332 +11,287 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
 
-type CampRow = {
-  id: number;
-  creatorUser: string;
-  name: string;
-  description: string | null;
-  pic: string | null;
-};
+const db: any = supabase;
 
-type CampParticipantRow = {
-  pUserName: string;
-  joinedAt: string;
-  campId: number;
-};
-
+type CampRow = { id: number; name: string; description: string; pic?: string; creatorUser: string };
+type CampParticipantRow = { campId: number; pUserName: string };
 type MessageRow = {
   id: number;
-  body: string;
   campId: number;
   senderUser: string;
+  body: string;
   createdAt: string;
-  replyToMessageId: number | null;
-  // موجودة عندكم في الجدول (نتركها للتوافق)
-  date?: string | null;
-  time?: string | null;
+  replyToMessageId?: number | null;
 };
 
+/* ===============================
+   Debug helpers (simple)
+================================ */
+function dbg(label: string, payload?: any) {
+  console.groupCollapsed(`🧩 [CAMP] ${label}`);
+  if (payload !== undefined) console.log("payload:", payload);
+  console.groupEnd();
+}
+
+function dbgError(label: string, error: any, payload?: any) {
+  console.groupCollapsed(`🔴 [CAMP ERROR] ${label}`);
+  console.error("error:", {
+    code: error?.code,
+    message: error?.message,
+    details: error?.details,
+    hint: error?.hint,
+    status: error?.status,
+  });
+  if (payload !== undefined) console.error("payload:", payload);
+  console.groupEnd();
+}
+
+async function sb<T>(label: string, query: Promise<{ data: T; error: any }>): Promise<{ data: T; error: any }> {
+  dbg(`${label} (start)`);
+  const res = await query;
+  if (res.error) dbgError(label, res.error);
+  else dbg(`${label} (ok)`, res.data);
+  return res;
+}
+
 export default function CampPage() {
-  /**
-   * الجزء: قراءة campId من الرابط
-   * لماذا؟ عشان نعرف أي معسكر نجيب بياناته
-   * ملاحظة: useParams قد يرجع string أو string[] لذلك نحوله
-   */
   const params = useParams();
   const router = useRouter();
 
-  const campIdStr = useMemo(() => {
+  const campId = useMemo(() => {
     const raw = (params as any)?.id;
-    return Array.isArray(raw) ? raw[0] : raw;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
   }, [params]);
 
-  /**
-   * الجزء: تحويل campId إلى رقم لأن قاعدة البيانات int8
-   * الفائدة: يمنع mismatch في الاستعلامات والـ insert والـ realtime filter
-   */
-  const campIdNum = useMemo(() => {
-    const n = Number(campIdStr);
-    return Number.isFinite(n) ? n : null;
-  }, [campIdStr]);
-
-  /**
-   * حالات البيانات
-   */
   const [camp, setCamp] = useState<CampRow | null>(null);
   const [members, setMembers] = useState<CampParticipantRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [newMessage, setNewMessage] = useState("");
-
-  /**
-   * تجهيز دعم reply (اقتباس)
-   * - حاليًا: نخليه جاهز بالـ state، والـ UI ممكن نضيفه بعد
-   */
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
 
-  /**
-   * مرجع DOM للتمرير لآخر رسالة
-   */
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  /**
-   * فهرس سريع للرسائل حسب id عشان نعرض اقتباس (إذا replyToMessageId موجود)
-   */
   const messagesById = useMemo(() => {
-    const map = new Map<number, MessageRow>();
-    for (const m of messages) map.set(m.id, m);
-    return map;
+    const m = new Map<number, MessageRow>();
+    for (const msg of messages) m.set(msg.id, msg);
+    return m;
   }, [messages]);
 
-  /**
-   * useEffect: جلب البيانات الأساسية + التحقق من صلاحية الوصول
-   * الخطوات:
-   * 1) التأكد أن المستخدم مسجل دخول
-   * 2) جلب userName من Member
-   * 3) التحقق أن المستخدم عضو في campId عبر CampParticipants
-   * 4) جلب بيانات Camp
-   * 5) جلب أعضاء CampParticipants
-   * 6) جلب رسائل Messages مرتبة بـ createdAt
-   */
+  async function getUserNameOrRedirect() {
+    dbg("getUserNameOrRedirect()");
+
+    const currentUser = await authService.getCurrentUser();
+    dbg("authService.getCurrentUser()", currentUser);
+
+    if (!currentUser?.email) {
+      dbg("No email -> redirect /login");
+      router.push("/login");
+      return null;
+    }
+
+    let userName = (currentUser as any)?.userName as string | undefined;
+    dbg("Try userName from currentUser", { userName });
+
+    if (!userName) {
+      const { data: memberData, error: memberErr } = await sb(
+        "Member: select userName by email",
+        db.from("Member").select("userName").eq("email", currentUser.email).single()
+      );
+
+      if (memberErr) {
+        router.push("/login");
+        return null;
+      }
+
+      userName = (memberData as any)?.userName;
+    }
+
+    if (!userName) {
+      dbg("userName missing -> redirect /login");
+      router.push("/login");
+      return null;
+    }
+
+    dbg("Resolved userName", { userName });
+    return userName;
+  }
+
+  async function assertMembershipOrRedirect(cId: number, userName: string) {
+    const { data: membership, error: membershipError } = await sb(
+      "CampParticipants: membership check",
+      db.from("CampParticipants").select("campId,pUserName").eq("campId", cId).eq("pUserName", userName).maybeSingle()
+    );
+
+    if (membershipError || !membership) {
+      dbg("Not member -> redirect /camp", { cId, userName });
+      alert("لا تملك صلاحية الوصول إلى هذا المعسكر.");
+      router.push("/camp");
+      return false;
+    }
+
+    dbg("Membership OK", membership);
+    return true;
+  }
+
   useEffect(() => {
-    if (!campIdNum) return;
+    if (!campId) return;
+
+    let alive = true;
 
     const fetchData = async () => {
+      dbg("CampPage fetchData() start", { campId });
+
       try {
-        // 1) التحقق من تسجيل الدخول
-        const currentUser = await authService.getCurrentUser();
-        if (!currentUser?.email) {
-          router.push("/login");
-          return;
-        }
+        const userName = await getUserNameOrRedirect();
+        if (!userName) return;
 
-        // 2) جلب userName من Member باستخدام email
-        const { data: memberData, error: memberError } = await supabase
-          .from("Member")
-          .select("userName")
-          .eq("email", currentUser.email)
-          .single();
+        // Gate access
+        const allowed = await assertMembershipOrRedirect(campId, userName);
+        if (!allowed) return;
 
-        if (memberError || !memberData?.userName) {
-          console.error("Member fetch error:", memberError);
-          router.push("/login");
-          return;
-        }
+        // Camp
+        const { data: campData, error: campError } = await sb(
+          "Camp: fetch camp row",
+          db.from("Camp").select("id,name,description,pic,creatorUser").eq("id", campId).single()
+        );
 
-        const userName = String(memberData.userName);
-
-        // 3) التحقق من عضوية المستخدم في هذا المعسكر
-        const { data: membership, error: membershipError } = await supabase
-          .from("CampParticipants")
-          .select("campId,pUserName")
-          .eq("campId", campIdNum)
-          .eq("pUserName", userName)
-          .maybeSingle();
-
-        if (membershipError) {
-          console.error("Membership check error:", membershipError);
-          alert("تعذر التحقق من صلاحية الوصول للمعسكر.");
-          router.push("/camp");
-          return;
-        }
-
-        if (!membership) {
-          alert("لا تملك صلاحية الوصول إلى هذا المعسكر.");
-          router.push("/camp");
-          return;
-        }
-
-        // 4) جلب بيانات المعسكر
-        const { data: campData, error: campError } = await supabase
-          .from("Camp")
-          .select("*")
-          .eq("id", campIdNum)
-          .single();
-
-        if (campError) {
-          console.error("Camp fetch error:", campError);
+        if (campError || !campData) {
           alert("تعذر تحميل بيانات المعسكر.");
           router.push("/camp");
           return;
         }
 
+        // Members
+        const { data: membersData } = await sb(
+          "CampParticipants: fetch members",
+          db.from("CampParticipants").select("campId,pUserName").eq("campId", campId)
+        );
+
+        // Messages
+        const { data: messagesData } = await sb(
+          "Messages: fetch messages",
+          db
+            .from("Messages")
+            .select("*")
+            .eq("campId", campId)
+            .order("createdAt", { ascending: true })
+        );
+
+        if (!alive) return;
+
         setCamp(campData as CampRow);
+        setMembers(((membersData as any) || []) as CampParticipantRow[]);
+        setMessages(((messagesData as any) || []) as MessageRow[]);
 
-        // 5) جلب الأعضاء
-        const { data: membersData, error: membersError } = await supabase
-          .from("CampParticipants")
-          .select("pUserName,joinedAt,campId")
-          .eq("campId", campIdNum);
-
-        if (membersError) console.error("Members fetch error:", membersError);
-        setMembers((membersData || []) as CampParticipantRow[]);
-
-        // 6) جلب الرسائل مرتبة حسب createdAt
-        const { data: messagesData, error: messagesError } = await supabase
-          .from("Messages")
-          .select("*")
-          .eq("campId", campIdNum)
-          .order("createdAt", { ascending: true });
-
-        if (messagesError) console.error("Messages fetch error:", messagesError);
-        setMessages((messagesData || []) as MessageRow[]);
+        dbg("CampPage state updated", {
+          campLoaded: Boolean(campData),
+          membersCount: (membersData as any)?.length ?? 0,
+          messagesCount: (messagesData as any)?.length ?? 0,
+        });
       } catch (e) {
-        console.error("Camp page fetch error:", e);
+        dbgError("CampPage fetchData() unexpected error", e);
         alert("حدثت مشكلة أثناء تحميل المعسكر.");
         router.push("/camp");
       }
     };
 
     fetchData();
-  }, [campIdNum, router]);
 
-  /**
-   * useEffect: الاشتراك اللحظي (Realtime) على INSERT في Messages لهذا المعسكر
-   * ملاحظة:
-   * - يعتمد على Enable Realtime + RLS SELECT الصحيحة
-   * - نعمل dedupe عشان ما تتكرر الرسالة لو جاءت مرتين (نادرًا)
-   */
+    return () => {
+      alive = false;
+      dbg("CampPage unmount/cleanup");
+    };
+  }, [campId, router]);
+
   useEffect(() => {
-    if (!campIdNum) return;
+    if (!campId) return;
+
+    dbg("Realtime subscribe start", { campId });
 
     const channel = supabase
-      .channel(`camp-${campIdNum}-messages`)
+      .channel(`camp-${campId}-messages`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "Messages",
-          filter: `campId=eq.${campIdNum}`,
+          filter: `campId=eq.${campId}`,
         },
         (payload) => {
-          const newRow = payload.new as MessageRow;
+          dbg("Realtime INSERT payload", payload?.new);
+          const row = payload.new as MessageRow;
 
           setMessages((prev) => {
-            // منع التكرار حسب id
-            if (prev.some((m) => m.id === newRow.id)) return prev;
-            return [...prev, newRow];
+            if (prev.some((x) => x.id === row.id)) {
+              dbg("Realtime duplicate ignored", { id: row.id });
+              return prev;
+            }
+            return [...prev, row];
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => dbg("Realtime status", status));
 
     return () => {
+      dbg("Realtime unsubscribe", { campId });
       supabase.removeChannel(channel);
     };
-  }, [campIdNum]);
+  }, [campId]);
 
-  /**
-   * useEffect: تمرير تلقائي لآخر رسالة
-   */
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /**
-   * الدالة: handleSendMessage
-   * الدور: إرسال رسالة جديدة لجدول Messages
-   * الشروط:
-   * - المستخدم مسجل دخول
-   * - senderUser لازم يطابق userName المرتبط بـ auth.email (عشان RLS)
-   */
-  const handleSendMessage = async () => {
-    if (!campIdNum) return;
+  async function handleSendMessage() {
+    if (!campId) return;
 
     const body = newMessage.trim();
     if (!body) return;
 
+    dbg("handleSendMessage() start", { campId, bodyLen: body.length, replyToId: replyTo?.id ?? null });
+
     try {
-      const currentUser = await authService.getCurrentUser();
-      if (!currentUser?.email) {
-        alert("يرجى تسجيل الدخول للمتابعة.");
-        router.push("/login");
+      const senderUser = await getUserNameOrRedirect();
+      if (!senderUser) return;
+
+      // Re-check membership
+      const allowed = await assertMembershipOrRedirect(campId, senderUser);
+      if (!allowed) return;
+
+      const payload = {
+        body,
+        senderUser,
+        campId,
+        createdAt: new Date().toISOString(),
+        replyToMessageId: replyTo?.id ?? null,
+      };
+
+      const { error } = await sb("Messages: insert message", db.from("Messages").insert([payload]));
+      if (error) {
+        dbgError("Messages insert FAILED", error, payload);
+        alert("تعذر إرسال الرسالة. شوفي الكونسول للتفاصيل.");
         return;
       }
 
-      // جلب userName (لازم عشان senderUser)
-      const { data: memberData, error: memberError } = await supabase
-        .from("Member")
-        .select("userName")
-        .eq("email", currentUser.email)
-        .single();
-
-      if (memberError || !memberData?.userName) {
-        console.error("Member fetch error:", memberError);
-        alert("تعذر إرسال الرسالة.");
-        return;
-      }
-
-      const senderUser = String(memberData.userName);
-
-      // (اختياري) نخلي date/time موجودة للتوافق مع جدولكم
-      const now = new Date();
-      const date = now.toISOString().split("T")[0];
-      const time = now.toTimeString().slice(0, 5);
-
-      const { error: insertError } = await supabase.from("Messages").insert([
-        {
-          body,
-          senderUser, // ✅ العمود الجديد
-          campId: campIdNum, // ✅ رقم
-          replyToMessageId: replyTo ? replyTo.id : null, // ✅ جاهز للـ reply
-          // createdAt له default now() في DB، مو لازم نرسله
-          date,
-          time,
-        },
-      ]);
-
-      if (insertError) {
-        console.error("Message insert error:", insertError);
-        alert("تعذر إرسال الرسالة.");
-        return;
-      }
-
+      dbg("Message sent OK", payload);
       setNewMessage("");
       setReplyTo(null);
     } catch (e) {
-      console.error("Send message error:", e);
+      dbgError("handleSendMessage() unexpected error", e);
       alert("تعذر إرسال الرسالة.");
     }
-  };
+  }
 
-  /**
-   * الدالة: formatMessageMeta
-   * الدور: توحيد عرض وقت الرسالة
-   * - نعرض createdAt إذا موجود
-   * - وإلا fallback على date/time (للتوافق)
-   */
-  const formatMessageMeta = (msg: MessageRow) => {
-    if (msg.createdAt) {
-      // عرض مختصر بدون تعقيد
-      const d = new Date(msg.createdAt);
-      if (!Number.isNaN(d.getTime())) {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        const hh = String(d.getHours()).padStart(2, "0");
-        const min = String(d.getMinutes()).padStart(2, "0");
-        return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
-      }
-    }
-
-    const date = msg.date ?? "";
-    const time = msg.time ?? "";
-    return `${date} ${time}`.trim();
-  };
-
-  /**
-   * JSX UI
-   */
   return (
     <div className="min-h-screen p-8 text-white">
-      {/* معلومات المعسكر */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold">{camp?.name}</h1>
         <p className="text-gray-400">{camp?.description}</p>
       </div>
 
-      {/* قائمة الأعضاء */}
       <div className="mb-8">
         <h2 className="text-xl mb-2">أعضاء المعسكر</h2>
         <ul className="space-y-1">
@@ -362,37 +303,28 @@ export default function CampPage() {
         </ul>
       </div>
 
-      {/* الشات */}
       <div className="border border-purple-500 rounded-xl p-4 mb-4 h-[350px] overflow-y-auto">
         {messages.map((msg) => {
-          const quoted =
-            msg.replyToMessageId != null ? messagesById.get(msg.replyToMessageId) : null;
-
+          const replied = msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : null;
           return (
             <div key={msg.id} className="mb-2 bg-purple-900 p-3 rounded-lg">
               <div className="text-xs text-gray-300">
-                {msg.senderUser} • {formatMessageMeta(msg)}
+                {msg.senderUser} • {new Date(msg.createdAt).toLocaleString()}
               </div>
 
-              {/* عرض اقتباس بسيط إذا الرسالة رد على رسالة */}
-              {quoted && (
-                <div className="mt-2 mb-2 p-2 rounded-md bg-purple-950/60 border border-purple-700">
-                  <div className="text-[11px] text-gray-300">
-                    رد على: {quoted.senderUser}
-                  </div>
-                  <div className="text-sm text-gray-200 line-clamp-2">
-                    {quoted.body}
-                  </div>
+              {replied && (
+                <div className="mt-2 mb-2 p-2 rounded-md bg-black/20 border border-white/10 text-xs text-gray-200">
+                  <div className="opacity-80">ردًا على: {replied.senderUser}</div>
+                  <div className="line-clamp-2">{replied.body}</div>
                 </div>
               )}
 
-              <div>{msg.body}</div>
+              <div className="mb-2">{msg.body}</div>
 
-              {/* زر Reply (اختياري) — جاهز الآن */}
               <button
                 type="button"
                 onClick={() => setReplyTo(msg)}
-                className="mt-2 text-xs text-purple-200 hover:text-purple-100"
+                className="text-xs text-purple-200 hover:text-purple-100"
               >
                 رد (اقتباس)
               </button>
@@ -402,36 +334,24 @@ export default function CampPage() {
         <div ref={chatEndRef} />
       </div>
 
-      {/* شريط يوضح على مين تردين */}
       {replyTo && (
-        <div className="mb-3 p-3 rounded-lg border border-purple-600 bg-purple-950/40">
-          <div className="text-xs text-gray-300">رد على: {replyTo.senderUser}</div>
+        <div className="mb-3 p-3 rounded-lg border border-purple-500 bg-purple-950/40">
+          <div className="text-xs text-gray-200 mb-1">أنتِ تردين على: {replyTo.senderUser}</div>
           <div className="text-sm text-gray-100 line-clamp-2">{replyTo.body}</div>
-          <button
-            type="button"
-            onClick={() => setReplyTo(null)}
-            className="mt-2 text-xs text-red-200 hover:text-red-100"
-          >
+          <button type="button" onClick={() => setReplyTo(null)} className="mt-2 text-xs text-red-200">
             إلغاء الرد
           </button>
         </div>
       )}
 
-      {/* إدخال رسالة */}
       <div className="flex gap-2">
         <input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="اكتب رسالتك..."
           className="flex-1 rounded-full px-4 py-2 bg-transparent border border-purple-500 outline-none"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSendMessage();
-          }}
         />
-        <button
-          onClick={handleSendMessage}
-          className="bg-purple-600 px-6 py-2 rounded-full"
-        >
+        <button onClick={handleSendMessage} className="bg-purple-600 px-6 py-2 rounded-full">
           إرسال
         </button>
       </div>
