@@ -1,12 +1,24 @@
 'use client';
 import { useState } from "react";
 import Glow from "./Glow";
+import { useRouter } from "next/navigation";
+import { authService } from "@/services/authService";
 
 export default function ProfilePage() {
   const [name, setName] = useState("الاسم");
   const [email, setEmail] = useState("Email@gmail.com");
   const [password, setPassword] = useState("password123");
   const [bio, setBio] = useState("اكتب نبذة عنك هنا...");
+
+  const router=useRouter();
+  const handleLogout= async()=>{
+    const success=await authService.logout();
+
+    if(success){
+      router.push("/login")
+    }
+  }
+
 
   return (
     <main className="min-h-screen bg-[#061125] text-white flex flex-col items-center font-['Cairo'] relative overflow-x-hidden" dir="rtl">
@@ -85,7 +97,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Logout Button */}
-        <button className="mt-20 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95">
+        <button 
+        onClick={handleLogout}
+        className="mt-20 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] 
+        rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95">
           تسجيل خروج
         </button>
       </div>

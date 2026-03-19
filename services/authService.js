@@ -123,6 +123,25 @@ export const authService = {
 
   onAuthChange: (callback) => {
     return supabase.auth.onAuthStateChange(callback);
+  },
+
+ logout: async () => {
+    try {
+      // تسجيل الخروج من سوبا بيز
+      const { error } = await supabase.auth.signOut();
+      
+      // حركة إضافية لضمان مسح أي بيانات عالقة في المتصفح
+      if (typeof window !== 'undefined') {
+        localStorage.clear(); // يمسح كل شي مخزن يخص الجلسة
+        sessionStorage.clear();
+      }
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("خطأ في تسجيل الخروج:", error.message);
+      return false;
+    }
   }
 }
 

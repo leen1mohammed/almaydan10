@@ -1,9 +1,42 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import ArenaCard from '../../components/ArenaCard';
+import { arenaService } from '../../services/arenaService';
+import { authService } from '../../services/authService';
 
 export default function ArenaPage() {
   const [activeTab, setActiveTab] = useState('all'); // 'all' أو 'my-arenas'
+  const [arenas,setArenas]=useState([]); //مخزن لكل الساحات 
+  const [myArenas,setMyArenas]=useState([]); //مخزن ساحات اليوزر بسس
+  const [loading,setLoading]=useState(true); //حالة التحميل
+
+   useEffect(() => {
+    const loadArenas = async () => {
+      try {
+        setLoading(true)
+        // 1. نجيب كل الساحات من جدول Arena
+        const allData = await arenaService.getAllArenas();
+        setArenas(allData);
+
+        // 2. نشوف مين اليوزر اللي داخل الحين
+        const user = await authService.getCurrentUser();
+        
+        // 3. لو مسجل دخول، نجيب ساحاته ونقاطه من جدول Joins
+        if (user?.userName) {
+          const myData = await arenaService.getMyArenas(user.userName);
+          setMyArenas(myData);
+        }
+      } catch (error) {
+        console.error("مشكلة في جلب الساحات:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadArenas();
+  }, []);
+
+
 
   return (
     
@@ -39,7 +72,8 @@ export default function ArenaPage() {
   {/* زر الساحات */}
   <button
     onClick={() => setActiveTab('all')}
-    className={`flex items-center justify-center w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] ${
+    className={`flex items-center justify-center w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all 
+        duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] ${
       activeTab === 'all' 
       ? 'border-[#B37FEB] shadow-[0_0_16px_0_rgba(41,255,100,0.4)]' // أخضر (النشط)
       : 'border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]' // بنفسجي (الآخر)
@@ -77,45 +111,75 @@ export default function ArenaPage() {
       {/* --- المربع الأخضر مع العبارة --- */}
       {/* يظهر فقط في صفحة "الساحات" */}
       {/* --- منطقة المحتوى (تظهر فقط في "الساحات") --- */}
-{activeTab === 'all' && (
-  <div className="z-10 w-full max-w-[1200px] flex flex-col items-center">
-    
-    {/* 1. الصف العلوي من الكروت (مثلاً أول 3 كروت) */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
-      <ArenaCard name="رابطة VK Gaming" image="/images/warzone.png" logo="/images/logo.png" />
-      <ArenaCard name="مجتمع Valorant" image="/images/valorant.png" logo="/images/logo2.png" />
-      <ArenaCard name="محبين LOL" image="/images/lol.png" logo="/images/logo3.png" />
-    </div>
+ {loading ? (
+        <div className="text-white col-span-3 text-center opacity-60 animate-pulse">جاري تحميل الميدان...</div>
+      ) : (
+        <>
+          {/* --- تبويب الساحات (الكل) --- */}
+          {activeTab === 'all' && (
+            <div className="z-10 w-full max-w-[1200px] flex flex-col items-center">
+              {/* الصف العلوي (أول 3) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
+                {arenas.slice(0, 3).map((arena) => (
+                  <ArenaCard
+                    key={arena.name}
+                    name={arena.name}
+                    image={arena.pic} // التأكد من مسمى picture
+                    logo={arena.logo || "/images/logo.png"}
+                    description={arena.description}
+                    isjoined={myArenas.some(m => m.name === arena.name)}
+                  />
+                ))}
+              </div>
 
-    {/* 2. المربع الأخضر في المنتصف */}
-    <div className="flex items-center justify-center w-[798px] h-[163px] rounded-[13px] border-[6px] border-[#29FF64] bg-[#020C1F]
-     shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-40">
-      <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
-        <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة</span>
-        <span> </span>
-        <span className="font-[1000]" style={{ textShadow: '0 3px 0 #FF27F0' }}>دون دفعة من التهور؟ </span>
-      </h2>
-    </div>
+              {/* المربع الأخضر */}
+<div className="flex items-center justify-center w-[798px] h-[163px] rounded-[13px] border-[6px] border-[#29FF64] 
+                bg-[#020C1F] shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-40">
+                <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
+                  <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة</span>
+                  <span> </span>
+                  <span className="font-[1000]" style={{ textShadow: '0 3px 0 #FF27F0' }}>دون دفعة من التهور؟ </span>
+                </h2>
+              </div>
 
-    {/* 3. الصف السفلي من الكروت (بقية الكروت) */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
-      <ArenaCard name="ساحة المحترفين" image="/images/pro.png" logo="/images/logo4.png" />
-      <ArenaCard name="أساطير فيفا" image="/images/fifa.png" logo="/images/logo5.png" />
-      <ArenaCard name="تحدي العرب" image="/images/arab.png" logo="/images/logo6.png" />
-    </div>
+              {/* الصف السفلي (البقية) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
+                {arenas.slice(3).map((arena) => (
+                  <ArenaCard
+                    key={arena.name}
+                    name={arena.name}
+                    image={arena.pic}
+                    logo={arena.logo || "/images/logo.png"}
+                    description={arena.description}
+                    isjoined={myArenas.some(m => m.name === arena.name)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
-  </div>
-)}
-
-{/* --- منطقة "ساحاتي" (تظهر بدون المربع والتقسيم) --- */}
-{activeTab === 'my-arenas' && (
-  <div className="z-10 w-full max-w-[1200px] grid grid-cols-3 gap-12 px-8">
-     <ArenaCard name="ساحتي المنضم إليها" image="/images/my.png" logo="/images/logo.png" />
-     <ArenaCard name="ساحة المحترفين" image="/images/pro.png" logo="/images/logo4.png" />
-      <ArenaCard name="أساطير فيفا" image="/images/fifa.png" logo="/images/logo5.png" />
-  </div>
-)}
-
+          {/* --- تبويب ساحاتي --- */}
+          {activeTab === 'my-arenas' && (
+            <div className="z-10 w-full max-w-[1200px] grid grid-cols-1 md:grid-cols-3 gap-12 px-8 justify-items-center">
+              {myArenas.length > 0 ? (
+                myArenas.map((arena) => (
+                  <ArenaCard
+                    key={arena.name}
+                    name={arena.name}
+                    image={arena.pic}
+                    logo={arena.logo || "/images/logo.png"}
+                    description={arena.description}
+                    points={arena.userPoints}
+                    isjoined={true}
+                  />
+                ))
+              ) : (
+                <div className="text-white col-span-3 text-center opacity-60">لم تنضم لأي ساحة بعد.. الميدان ينتظرك!</div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </main>
   );
 }

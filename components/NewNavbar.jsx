@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {authService} from "@/services/authService"
+import { supabase } from "@/lib/supabase";
 
 const LogoSVG = () => (
   <div className="w-[69px] h-[39px] flex-shrink-0">
@@ -66,12 +67,20 @@ export default function Navbar() {
   const[loading,setLoading]=useState(true)
 
   useEffect(() => {
+    const checkSession=async()=>{
+        const{data}=await supabase.auth.getSession();
+        console.log("session",data.session)
+    };
+    checkSession();
     const initAuth = async () => {
+        console.log("start init")
       const currentUser = await authService.getCurrentUser();
+      console.log("user:",currentUser)
       setUser(currentUser);
 
       if (currentUser?.userName) {
         const isAdminUser = await authService.checkIsAdmin(currentUser.userName);
+        console.log("isadmin:",isAdminUser)
         setIsAdmin(isAdminUser);
       }
       setLoading(false);
@@ -80,23 +89,25 @@ export default function Navbar() {
     initAuth();
 
     // الاستماع للتغييرات عبر السيرفس
-    const { data: authListener } = authService.onAuthChange((event, session) => {
+    const { data } = authService.onAuthChange((event, session) => {
         if(event==='SIGNED_OUT'){
-            setUser(NULL)
+            setUser(null)
             setIsAdmin(false);}
             else if(session?.user){
                 initAuth();
             }
     });
 
-    return () => authListener.subscription.unsubscribe();
+    return () => data?.subscription?.unsubscribe();
   }, []);
 
   // دالة حماية الروابط (شرط 1)
-  const handleProtectedAction = (e) => {
+  const handleProtectedAction = (path) => {
     if (!user) {
-      e.preventDefault(); // منع الانتقال للرابط
+      //.preventDefault(); // منع الانتقال للرابط
       router.push("/login"); // التوجيه لصفحة تسجيل الدخول
+    } else{
+        router.push(path)
     }
   };
 
@@ -131,25 +142,22 @@ export default function Navbar() {
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
 
           {/* الساحة: محمي بشرط تسجيل الدخول (شرط 1) */}
-          <Link
-            href="/arena"
-            onClick={(e) => handleProtectedAction(e, "/arena")}
+          <button
+            onClick={()=>handleProtectedAction("/arena")}
             className="hover:text-esport-primary transition-colors whitespace-nowrap"
           >
             الساحة
-          </Link>
-
+        </button>
           {/* المعسكر: محمي بشرط تسجيل الدخول + يختفي للأدمن (شرط 1 و 3) */}
           {!isAdmin && (
             <>
               <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-              <Link
-                href="/camp"
-                onClick={(e) => handleProtectedAction(e, "/camp")}
+              <button
+                onClick={() =>handleProtectedAction("/camp")}
                 className="hover:text-esport-primary transition-colors whitespace-nowrap"
               >
                 المعسكر
-              </Link>
+              </button>
             </>
           )}
 
@@ -165,6 +173,7 @@ export default function Navbar() {
           <Link href="/about" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             حول
           </Link>
+
 
 
         </div>

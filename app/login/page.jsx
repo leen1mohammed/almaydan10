@@ -20,7 +20,7 @@ export default function LoginPage() {
 
     if (result.success) {
       alert("أهلاً بك مجدداً في الميدان! 🔥");
-      router.push('/app'); 
+      router.push('/'); 
     } else {
       setLoginError(result.message)
     }
