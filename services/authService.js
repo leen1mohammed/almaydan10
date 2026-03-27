@@ -79,45 +79,47 @@ export const loginUser=async(userName,password)=>{
 
 // تعريفه مرة واحدة فقط هنا!
 //const supabase = createClientComponentClient();
+// service/authservice.js
+
 export const authService = {
-  // 1. جلب بيانات العضو المسجل
   getCurrentUser: async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) return null;
 
-      // نجيب الـ userName من جدول Member باستخدام الـ email
-      const { data: memberData } = await supabase
-        .from('Member')
-        .select('userName')
-        .eq('email', user.email) 
-        .single();
+      const { data: memberData, error: memberErr } = await supabase
+        .from("Member")
+        .select("userName")
+        .eq("email", user.email)
+        .maybeSingle();
 
-      return memberData ? { ...user, userName: memberData.userName } : user;
-    } catch (e) {
+      if (memberErr) return user;
+      return memberData?.userName ? { ...user, userName: memberData.userName } : user;
+    } catch {
       return null;
     }
   },
 
-  // 2. التحقق هل هو "أدمن" من جدول Admin
+  // ✅ مهم: maybeSingle بدل single عشان ما يطلع 406 لما ما يكون Admin
   checkIsAdmin: async (userName) => {
     if (!userName) return false;
-    const { data } = await supabase
-      .from('Admin')
-      .select('AuserName')
-      .eq('AuserName', userName)
-      .single();
-    return !!data; 
-  },
 
-  // 3. التحقق هل هو "مستخدم عادي" من جدول Participant
-  checkIsParticipant: async (userName) => {
-    if (!userName) return false;
-    const { data } = await supabase
-      .from('Participant')
-      .select('PuserName')
-      .eq('PuserName', userName)
-      .single();
+    const { data, error } = await supabase
+      .from("Admin")
+      .select("AuserName")
+      .eq("AuserName", userName)
+      .maybeSingle();
+
+    if (error) {
+      console.error("checkIsAdmin error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return false;
+    }
+
     return !!data;
   },
 
@@ -142,6 +144,29 @@ export const authService = {
       console.error("خطأ في تسجيل الخروج:", error.message);
       return false;
     }
-  }
-}
+  },
+  // ✅ نفس الفكرة
+  checkIsParticipant: async (userName) => {
+    if (!userName) return false;
 
+    const { data, error } = await supabase
+      .from("Participant")
+      .select("PuserName")
+      .eq("PuserName", userName)
+      .maybeSingle();
+
+    if (error) {
+      console.error("checkIsParticipant error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return false;
+    }
+
+    return !!data;
+  },
+
+  onAuthChange: (callback) => supabase.auth.onAuthStateChange(callback),
+};

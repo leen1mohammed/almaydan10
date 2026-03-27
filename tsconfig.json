@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/about/page.jsx"  ],
+, "app/about/page.jsx", "components/HomePage/HomeCard.jsx", "components/HomePage/ArenaSection.jsx", "components/HomePage/ArenaComSection.jsx"  ],
   "exclude": ["node_modules"]
 }
