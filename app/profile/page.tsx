@@ -407,7 +407,10 @@ export default function ProfilePage() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95"
+            
+        onClick={handleLogout}
+        className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] 
+        rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95"
           >
             تسجيل خروج
           </button>

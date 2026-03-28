@@ -123,8 +123,31 @@ export const authService = {
     return !!data;
   },
 
+  onAuthChange: (callback) => {
+    return supabase.auth.onAuthStateChange(callback);
+  },
+
+ logout: async () => {
+    try {
+      // تسجيل الخروج من سوبا بيز
+      const { error } = await supabase.auth.signOut();
+      
+      // حركة إضافية لضمان مسح أي بيانات عالقة في المتصفح
+      if (typeof window !== 'undefined') {
+        localStorage.clear(); // يمسح كل شي مخزن يخص الجلسة
+        sessionStorage.clear();
+      }
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("خطأ في تسجيل الخروج:", error.message);
+      return false;
+    }
+  },
+
   // ✅ نفس الفكرة
-  checkIsParticipant: async (userName) => {
+ checkIsParticipant: async (userName) => {
     if (!userName) return false;
 
     const { data, error } = await supabase
@@ -146,5 +169,34 @@ export const authService = {
     return !!data;
   },
 
+
+ getUserRole: async (userName) => {
+    try {
+      // 1. نبحث في جدول الأدمن أولاً
+      const { data: adminData } = await supabase
+        .from('Admin')
+        .select('AuserName')
+        .eq('AuserName', userName)
+        .single();
+
+      if (adminData) return 'admin'; // إذا وجدناه، فهو أدمن
+
+      // 2. إذا لم نجده في الأدمن، نبحث في جدول المشاركين
+      const { data: participantData } = await supabase
+        .from('Participant')
+        .select('PuserName')
+        .eq('PuserName', userName)
+        .single();
+
+      if (participantData) return 'participant'; // إذا وجدناه، فهو مشارك
+
+      return null; // مستخدم جديد لم يتحدد دوره بعد
+    } catch (error) {
+      console.error("Error fetching role:", error);
+      return null;
+    }
+  }, 
+
   onAuthChange: (callback) => supabase.auth.onAuthStateChange(callback),
 };
+

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import Glow from '../login/Glow';
 import { registerUser,checkUsername } from '@/services/authService';
 import { useState } from 'react';
+import { useRouter } from "next/navigation";
+
 
 
 export default function RegisterPage() {
@@ -25,6 +27,7 @@ export default function RegisterPage() {
 
     if(result.success){
       alert("تم الانضمام بنجاح");
+      router.push('/');
     }
     else{
       alert("فيه مشكلة" + result.message);
