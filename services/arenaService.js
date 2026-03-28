@@ -124,5 +124,25 @@ export const arenaService = {
   if (error) throw error;
   return { success: true };
 },
+createArena: async (arenaData) => {
+  try {
+    const { data, error } = await supabase
+      .from('Arena') // تأكدي من اسم الجدول عندك (Arena أو Arenas)
+      .insert([
+        { 
+          name: arenaData.name, 
+          pic: arenaData.image, 
+          logo: arenaData.logo,
+          description: arenaData.description || "ساحة جديدة للأبطال" 
+        }
+      ]);
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error creating arena:", error.message);
+    return { success: false, error: error.message };
+  }
+},
 
 }

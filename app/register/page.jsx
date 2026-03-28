@@ -27,7 +27,7 @@ export default function RegisterPage() {
 
     if(result.success){
       alert("تم الانضمام بنجاح");
-      router.push("/");
+      router.push('/');
     }
     else{
       alert("فيه مشكلة" + result.message);

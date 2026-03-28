@@ -9,9 +9,32 @@ export default function ArenaPage() {
   const [arenas,setArenas]=useState([]); //مخزن لكل الساحات 
   const [myArenas,setMyArenas]=useState([]); //مخزن ساحات اليوزر بسس
   const [loading,setLoading]=useState(true); //حالة التحميل
+  const [role,setRole]=useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newArena, setNewArena] = useState({ name: '', description: '', image: '', logo: '' });
 
+
+  const handleCreateSubmit = async () => {
+  // فحص بسيط قبل الإرسال
+  if (!newArena.name || !newArena.image) {
+    alert("البيانات ناقصة يا رئيسة! ✋");
+    return;
+  }
+
+  // استدعاء السيرفس
+  const result = await arenaService.createArena(newArena);
+
+  if (result.success) {
+    alert("تمت إضافة الساحة للميدان بنجاح! 🚀");
+    setShowCreateModal(false);
+    // تحديث الصفحة عشان تظهر الساحة الجديدة فوراً
+    window.location.reload(); 
+  } else {
+    alert("فشل الإنشاء: " + result.error);
+  }
+};
    useEffect(() => {
-    const loadArenas = async () => {
+  const loadArenas = async () => {
       try {
         setLoading(true)
         // 1. نجيب كل الساحات من جدول Arena
@@ -20,13 +43,20 @@ export default function ArenaPage() {
 
         // 2. نشوف مين اليوزر اللي داخل الحين
         const user = await authService.getCurrentUser();
+        console.log("userrr",user);
         
         // 3. لو مسجل دخول، نجيب ساحاته ونقاطه من جدول Joins
         if (user?.userName) {
           const myData = await arenaService.getMyArenas(user.userName);
           setMyArenas(myData);
-        }
-      } catch (error) {
+
+          const userRole= await authService.getUserRole(user.userName);
+          setRole(userRole)
+          console.log("تم التعرف على المستخدم",user.userName,"بدور:",userRole);
+
+      }
+      } 
+      catch (error) {
         console.error("مشكلة في جلب الساحات:", error);
       } finally {
         setLoading(false);
@@ -67,8 +97,7 @@ export default function ArenaPage() {
       )}
 
       {/* --- حاوية الأزرار (The Tabs) --- */}
-<div className="z-10 flex gap-4 mb-16">
-  
+      <div className="z-10 flex gap-4 mb-16"> 
   {/* زر الساحات */}
   <button
     onClick={() => setActiveTab('all')}
@@ -88,7 +117,20 @@ export default function ArenaPage() {
     الساحات
   </button>
 
+  {/* 1. زر إنشاء ساحة جديدة (+): للأدمن فقط */}
+    {role === 'admin' && (
+      <button 
+        onClick={() => setShowCreateModal(true)} // بنجهز المودال لاحقاً
+        className="flex items-center justify-center w-12 h-12 rounded-full text-[#29FF64] 
+        text-4xl font-light hover:bg-[#29FF64]/10 transition-all duration-300"
+        title="إنشاء ساحة جديدة"
+      >
+        +
+      </button>
+    )}
+
   {/* زر ساحاتي */}
+  {role==='participant'&& (
   <button
     onClick={() => setActiveTab('my-arenas')}
     className={`flex items-center justify-center w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] ${
@@ -105,7 +147,7 @@ export default function ArenaPage() {
   >
     ساحاتي
   </button>
-
+)}
 </div>
 
       {/* --- المربع الأخضر مع العبارة --- */}
@@ -179,6 +221,67 @@ export default function ArenaPage() {
             </div>
           )}
         </>
+      )}
+      {showCreateModal && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="bg-[#020C1F] border-2 border-[#29FF64] w-full max-w-[500px] rounded-[30px] p-8 relative shadow-[0_0_50px_rgba(41,255,100,0.2)]">
+      
+      {/* زر الإغلاق */}
+      <button onClick={() => setShowCreateModal(false)} className="absolute top-6 left-6 text-gray-400 hover:text-white">✕</button>
+
+      <h2 className="text-white font-['Cairo'] font-black text-2xl mb-6 text-center">إنشاء ساحة جديدة</h2>
+      <div className="space-y-4">
+        <div>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">اسم الساحة</label>
+          <input 
+            type="text" 
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none transition-all"
+            placeholder="مثلاً: محبين Valorant"
+            onChange={(e) => setNewArena({...newArena, name: e.target.value})}
+          />
+        </div>
+
+        <div>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">وصف الساحة </label>
+          <input 
+            type="text" 
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none transition-all"
+            placeholder="اكتب وصف الساحة هنا..."
+            onChange={(e) => setNewArena({...newArena, description: e.target.value})}
+          />
+        </div>
+
+        <div>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">رابط الصورة</label>
+          <input 
+            type="text" 
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none"
+            placeholder=" رابط الصورة هنا..."
+            onChange={(e) => setNewArena({...newArena, image: e.target.value})}
+          />
+        </div>
+
+        <div>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">رابط اللوقو</label>
+          <input 
+            type="text" 
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none"
+            placeholder="رابط اللوقو هنا..."
+            onChange={(e) => setNewArena({...newArena, logo: e.target.value})}
+          />
+        </div>
+
+        <button 
+          onClick={handleCreateSubmit}
+          className="flex  justify-center mx-auto w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all 
+        duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
+        border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
+        >
+         انشاء الساحة
+        </button>
+      </div>
+    </div>
+  </div>
       )}
     </main>
   );
