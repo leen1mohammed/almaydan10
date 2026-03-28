@@ -7,7 +7,7 @@ import Link from "next/link";
 import { loginUser } from "@/services/authService";
 
 export default function LoginPage() {
-  const [userName, setUserName] = useState(''); // غيرنا هنا
+  const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
   const [loginError,setLoginError]=useState('');
