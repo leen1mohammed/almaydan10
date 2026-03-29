@@ -15,7 +15,7 @@ export default function Glow() {
           <path d="M-35.4991 398.945C-102.299 442.545 -63.3324 790.445 -35.4991 958.945L1349 980.445V500.945C1315.17 474.279 1227.9 436.945 1149.5 500.945C1051.5 580.945 818.501 496.945 582.001 362.445C345.501 227.945 48.0009 344.445 -35.4991 398.945Z" fill="#722ED1"/>
         </g>
         <defs>
-          <filter id="filter0_f_610_9844" x="-372.383" y="0" width="2021.38" height="1280.45" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+          <filter id="filter0_f_610_9844" x="-372.383" y="0" width="2021.38" height="1280.45" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
             <feFlood floodOpacity={0} result="BackgroundImageFix"/>
             <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
             <feGaussianBlur stdDeviation="150" result="effect1_foregroundBlur_610_9844"/>
