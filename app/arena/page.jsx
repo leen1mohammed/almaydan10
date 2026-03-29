@@ -77,7 +77,7 @@ export default function ArenaPage() {
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 500); 
+    }, 2000); 
   }
 }, [arenas]); // يشتغل لما الساحات تتحمل
 
@@ -178,9 +178,8 @@ export default function ArenaPage() {
               {/* الصف العلوي (أول 3) */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
                 {arenas.slice(0, 3).map((arena) => (
+                  <div key={arena.name} id={`arena-${arena.name}`}>
                   <ArenaCard
-                    key={arena.name}
-                    id={`arena-${arena.name}`}
                     name={arena.name}
                     image={arena.pic} // التأكد من مسمى picture
                     logo={arena.logo || "/images/logo.png"}
@@ -188,6 +187,7 @@ export default function ArenaPage() {
                     isjoined={myArenas.some(m => m.name === arena.name)}
                     role={role}
                   />
+                  </div>
                 ))}
               </div>
 
@@ -204,16 +204,16 @@ export default function ArenaPage() {
               {/* الصف السفلي (البقية) */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-12 gap-x-6 justify-items-center w-full">
                 {arenas.slice(3).map((arena) => (
+                  <div key={arena.name} id={`arena-${arena.name}`}>
                   <ArenaCard
-                    key={arena.name}
                     name={arena.name}
                     image={arena.pic}
                     logo={arena.logo || "/images/logo.png"}
                     description={arena.description}
                     isjoined={myArenas.some(m => m.name === arena.name)}
                     role={role}
-
                   />
+                  </div>
                 ))}
               </div>
             </div>
