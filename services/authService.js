@@ -140,5 +140,32 @@ export const authService = {
     return !!data;
   },
 
+  getUserRole: async (userName) => {
+    try {
+      // 1. نبحث في جدول الأدمن أولاً
+      const { data: adminData } = await supabase
+        .from('Admin')
+        .select('AuserName')
+        .eq('AuserName', userName)
+        .single();
+
+      if (adminData) return 'admin'; // إذا وجدناه، فهو أدمن
+
+      // 2. إذا لم نجده في الأدمن، نبحث في جدول المشاركين
+      const { data: participantData } = await supabase
+        .from('Participant')
+        .select('PuserName')
+        .eq('PuserName', userName)
+        .single();
+
+      if (participantData) return 'participant'; // إذا وجدناه، فهو مشارك
+
+      return null; // مستخدم جديد لم يتحدد دوره بعد
+    } catch (error) {
+      console.error("Error fetching role:", error);
+      return null;
+    }
+  }, 
+
   onAuthChange: (callback) => supabase.auth.onAuthStateChange(callback),
 };
