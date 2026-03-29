@@ -25,7 +25,7 @@ export default function LoginPage() {
         router.push('/profile?firstLogin=true');
       } else {
         // ✅ Returning user → go to main app
-        router.push('/app');
+        router.push('/');
       }
     } else {
       setLoginError(result.message);
