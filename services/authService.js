@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 // REGISTER
 // ─────────────────────────────────────────────
 export const registerUser = async (email, password, userName, fullName) => {
+  // 1. Create auth account
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -11,24 +12,40 @@ export const registerUser = async (email, password, userName, fullName) => {
   if (authError) return { success: false, message: authError.message };
 
   try {
+    // 2. Insert into Member table
     const { error: memberError } = await supabase.from('Member').insert([
       { userName, name: fullName, email, password },
     ]);
     if (memberError) throw memberError;
 
+    // 3. Insert into Profile table
     const { error: profileError } = await supabase.from('Profile').insert([
       { pruserName: userName, bio: "", profilePic: "" },
     ]);
     if (profileError) throw profileError;
 
+    // 4. Insert into Participant table
     const { error: participantError } = await supabase.from('Participant').insert([
       { PuserName: userName, zoneinfo: "" },
     ]);
     if (participantError) throw participantError;
 
-    return { success: true, message: "تم إنشاء حسابك وملفاتك بنجاح! 🏆" };
+    // 5. ✅ Auto sign-in after registration so user doesn't need to login manually
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      // Registration worked but auto-login failed → send to login page
+      return { success: true, redirectTo: '/login' };
+    }
+
+    // 6. ✅ Auto-login worked → send directly to profile as first time user
+    return { success: true, redirectTo: '/profile?firstLogin=true' };
+
   } catch (err) {
-    console.error("خطأ في الربط باليوزر نيم:", err.message);
+    console.error("خطأ في التسجيل:", err.message);
     return { success: false, message: "حصلت مشكلة في تجهيز الجداول المرتبطة." };
   }
 };
@@ -53,7 +70,7 @@ export const checkUsername = async (userName) => {
 export const loginUser = async (userName, password) => {
   console.log("محاولة دخول", userName);
 
-  // 1. Get email from Member
+  // 1. Get email from Member using userName
   const { data: memberData, error: memberError } = await supabase
     .from('Member')
     .select('email')
@@ -88,7 +105,7 @@ export const loginUser = async (userName, password) => {
 // ─────────────────────────────────────────────
 export const authService = {
 
-  // ✅ Now fetches userName AND name — fixes the missing name bug
+  // ✅ Fetches userName AND name — fixes the missing name bug
   getCurrentUser: async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
@@ -142,30 +159,26 @@ export const authService = {
 
   getUserRole: async (userName) => {
     try {
-      // 1. نبحث في جدول الأدمن أولاً
       const { data: adminData } = await supabase
         .from('Admin')
         .select('AuserName')
         .eq('AuserName', userName)
         .single();
+      if (adminData) return 'admin';
 
-      if (adminData) return 'admin'; // إذا وجدناه، فهو أدمن
-
-      // 2. إذا لم نجده في الأدمن، نبحث في جدول المشاركين
       const { data: participantData } = await supabase
         .from('Participant')
         .select('PuserName')
         .eq('PuserName', userName)
         .single();
+      if (participantData) return 'participant';
 
-      if (participantData) return 'participant'; // إذا وجدناه، فهو مشارك
-
-      return null; // مستخدم جديد لم يتحدد دوره بعد
+      return null;
     } catch (error) {
       console.error("Error fetching role:", error);
       return null;
     }
-  }, 
+  },
 
   onAuthChange: (callback) => supabase.auth.onAuthStateChange(callback),
 };
