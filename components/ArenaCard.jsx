@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService';
 import { arenaService } from '../services/arenaService';
 
-export default function ArenaCard({ name, image, logo, description, points, isjoined }) {
+export default function ArenaCard({ name, image, logo, description, points, isjoined ,role}) {
   const [isFlipped, setIsFlipped] = useState(false);
   const router = useRouter();
 
@@ -44,6 +44,16 @@ export default function ArenaCard({ name, image, logo, description, points, isjo
   } catch (error) {
     console.error("خطأ في الانضمام:", error);
     alert("حصلت مشكلة بسيطة، جرب مرة ثانية.");
+  }
+};
+
+const handleDelete = async (arenaName) => {
+  const result = await arenaService.deleteArena(arenaName);
+  if (result.success) {
+    alert("تم مسح الساحة من الميدان!");
+    window.location.reload(); 
+  } else {
+    alert("فشل الحذف: " + result.error);
   }
 };
 
@@ -129,22 +139,61 @@ export default function ArenaCard({ name, image, logo, description, points, isjo
           <p className="text-white font-['Cairo'] text-[14px] leading-[22px] mb-8 opacity-90">
             {description || "هذه الساحة مخصصة لأبطال الميدان. انضم الآن لتثبت شجاعتك وتجمع النقاط!"}
           </p>
-          
-          <button 
-  onClick={handleJoin}
-  className="flex items-center justify-center w-[130px] py-2 px-4 rounded-[30px] 
-  border-[1.4px] border-[#B37FEB] transition-all duration-500 font-['Cairo'] font-[800] 
-  text-[16px] text-white shadow-[0_0_16px_0_rgba(41,255,100,0.4)] hover:scale-105"
-  style={{
-    background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(41, 255, 100, 0.53)',
-    backgroundBlendMode: 'soft-light, normal'
-  }}
->
-    {isjoined? "دخول الساحة":"انضمام"}
-</button>
-        </div>
 
-      </div>
+          <div className="flex flex-col gap-3 w-full items-center">
+  {role === 'admin' ? (
+    <>
+      {/* زر دخول الساحة للأدمن */}
+      <button 
+        onClick={() => router.push(`/arena/${name}`)}
+        className="flex items-center justify-center w-[150px] py-2 px-4 rounded-[30px] 
+            border-[1.4px] border-[#B37FEB] transition-all duration-500 font-['Cairo'] font-[800] 
+            text-[16px] text-white shadow-[0_0_16px_0_rgba(41,255,100,0.4)] hover:scale-105"
+            style={{
+              background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(41, 255, 100, 0.53)',
+              backgroundBlendMode: 'soft-light, normal'}}
+      >
+        دخول الساحة
+      </button>
+      {/* زر حذف الساحة للأدمن */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          if(confirm(`هل أنتِ متأكدة من حذف ساحة ${name}؟`)) {
+             handleDelete(name);
+          }
+        }}
+        className="flex items-center justify-center w-[150px] py-2 px-4 rounded-[30px] 
+    border-[1.4px] transition-all duration-500 font-['Cairo'] font-[800] 
+    text-[16px] text-white shadow-[0_0_16px_0_rgba(255,0,0,0.4)] hover:scale-105"
+  style={{
+    background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(255, 0, 0, 0.53)',
+    backgroundBlendMode: 'soft-light, normal',
+    borderColor: '#FF4D4F'
+  }}
+      >
+        حذف الساحة 🗑️
+      </button>
+    </>
+  ) : (
+    /* زر الانضمام/الدخول العادي للمشارك (كودك القديم) */
+                  <button 
+            onClick={handleJoin}
+            className="flex items-center justify-center w-[150px] py-2 px-4 rounded-[30px] 
+            border-[1.4px] border-[#B37FEB] transition-all duration-500 font-['Cairo'] font-[800] 
+            text-[16px] text-white shadow-[0_0_16px_0_rgba(41,255,100,0.4)] hover:scale-105"
+            style={{
+              background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(41, 255, 100, 0.53)',
+              backgroundBlendMode: 'soft-light, normal'
+            }}
+          >
+              {isjoined? "دخول الساحة":"انضمام"}
+                </button>
+  )}
+
     </div>
-  );
-}
+    </div>
+    </div>
+    </div>
+    );
+    }

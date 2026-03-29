@@ -145,4 +145,18 @@ createArena: async (arenaData) => {
   }
 },
 
+deleteArena: async (arenaName) => {
+  try {
+    const { error } = await supabase
+      .from('Arena')
+      .delete()
+      .eq('name', arenaName);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+},
+
 }

@@ -17,7 +17,7 @@ export default function ArenaPage() {
   const handleCreateSubmit = async () => {
   // فحص بسيط قبل الإرسال
   if (!newArena.name || !newArena.image) {
-    alert("البيانات ناقصة يا رئيسة! ✋");
+    alert("البيانات ناقصة يا رئيسة! ");
     return;
   }
 
@@ -25,7 +25,7 @@ export default function ArenaPage() {
   const result = await arenaService.createArena(newArena);
 
   if (result.success) {
-    alert("تمت إضافة الساحة للميدان بنجاح! 🚀");
+    alert("تمت إضافة الساحة للميدان بنجاح!");
     setShowCreateModal(false);
     // تحديث الصفحة عشان تظهر الساحة الجديدة فوراً
     window.location.reload(); 
@@ -65,6 +65,21 @@ export default function ArenaPage() {
 
     loadArenas();
   }, []);
+
+  useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetId = urlParams.get('target');
+
+  if (targetId) {
+    // ننتظر شوي لين الكروت تتحمل
+    setTimeout(() => {
+      const element = document.getElementById(`arena-${targetId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 500); 
+  }
+}, [arenas]); // يشتغل لما الساحات تتحمل
 
 
 
@@ -165,11 +180,13 @@ export default function ArenaPage() {
                 {arenas.slice(0, 3).map((arena) => (
                   <ArenaCard
                     key={arena.name}
+                    id={`arena-${arena.name}`}
                     name={arena.name}
                     image={arena.pic} // التأكد من مسمى picture
                     logo={arena.logo || "/images/logo.png"}
                     description={arena.description}
                     isjoined={myArenas.some(m => m.name === arena.name)}
+                    role={role}
                   />
                 ))}
               </div>
@@ -194,6 +211,8 @@ export default function ArenaPage() {
                     logo={arena.logo || "/images/logo.png"}
                     description={arena.description}
                     isjoined={myArenas.some(m => m.name === arena.name)}
+                    role={role}
+
                   />
                 ))}
               </div>
@@ -224,7 +243,8 @@ export default function ArenaPage() {
       )}
       {showCreateModal && (
   <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-    <div className="bg-[#020C1F] border-2 border-[#29FF64] w-full max-w-[500px] rounded-[30px] p-8 relative shadow-[0_0_50px_rgba(41,255,100,0.2)]">
+    <div className="bg-[#020C1F] border-2 border-[#29FF64] w-full max-w-[500px] rounded-[30px] p-8 relative 
+    shadow-[0_0_50px_rgba(41,255,100,0.2)]">
       
       {/* زر الإغلاق */}
       <button onClick={() => setShowCreateModal(false)} className="absolute top-6 left-6 text-gray-400 hover:text-white">✕</button>

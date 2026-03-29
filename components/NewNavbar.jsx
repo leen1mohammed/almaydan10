@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {authService} from "@/services/authService"
 import { supabase } from "@/lib/supabase";
+import {searchService} from "@/services/searchService"
 
 const LogoSVG = () => (
   <div className="w-[69px] h-[39px] flex-shrink-0">
@@ -64,7 +65,25 @@ export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState(null); // الحالة 1: هل سجل دخول؟
   const [isAdmin, setIsAdmin] = useState(false);       // الحالة 3: هل هو أدمن؟
-  const[loading,setLoading]=useState(true)
+  const [loading,setLoading]=useState(true);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [results, setResults] = useState({ users: [], arenas: [] });
+
+// نستخدم useEffect لمراقبة التغيير في كلمة البحث
+useEffect(() => {
+  const delayDebounceFn = setTimeout(async () => {
+    if (searchQuery.length > 1) { // ابدأ البحث بعد كتابة حرفين
+      const data = await searchService.searchGlobal(searchQuery);
+      setResults(data);
+    } else {
+      setResults({ users: [], arenas: [] });
+    }
+  }, 300); // "Debounce" لتقليل الضغط على السيرفر (ينتظر 300ms بعد التوقف عن الكتابة)
+
+  return () => clearTimeout(delayDebounceFn);
+}, [searchQuery]);
+
 
   useEffect(() => {
     const checkSession=async()=>{
@@ -110,6 +129,30 @@ export default function Navbar() {
         router.push(path)
     }
   };
+
+  const handleResultClick = (type, id) => {
+  setIsSearchOpen(false); // أولاً نقفل مربع البحث عشان ما يضايقنا
+  setSearchQuery(""); // نصفر البحث للمرة الجاية
+
+  if (type === 'user') {
+    router.push(`/profile/${id}`); // يوديك لبروفايل اليوزر
+  } else if (type === 'arena') {
+    // 1. نبحث عن العنصر في الصفحة باستخدام الـ id اللي حطيناه
+    const element = document.getElementById(`arena-${id}`);
+
+    if (element) {
+      // 2. إذا كنا في نفس الصفحة، نسوي سكرول ناعم
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // حركة إضافية: وميض خفيف للكارد عشان المستخدم يعرف إنه وصل
+      element.classList.add('animate-pulse');
+      setTimeout(() => element.classList.remove('animate-pulse'), 2000);
+    } else {
+      // 3. إذا كان المستخدم في صفحة ثانية، نوديه لصفحة الساحات مع "إشارة" في الرابط
+      router.push(`/arena?target=${id}`);
+    }
+  }
+};
 
   return (
     <div className="flex justify-center w-full mt-6 px-4 md:px-8">
@@ -196,10 +239,84 @@ export default function Navbar() {
             />
           </div>
 
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+
+           {/* شغل البحث هنا */}
+           <div className="relative">
+          <button onClick={() => setIsSearchOpen(!isSearchOpen)}
+          className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <SearchSVG />
           </button>
+          </div>
+        {isSearchOpen && (
+    <>
+      {/* هذه الطبقة الشفافة لإغلاق البحث عند الضغط في أي مكان خارج المربع */}
+      <div 
+        className="fixed inset-0 z-40" 
+        onClick={() => setIsSearchOpen(false)} 
+      />
+
+      {/* مربع البحث المنسدل (Dropdown) */}
+      <div className="absolute top-12 left-0 z-50 w-[350px] bg-[#020C1F] border border-[#29FF64] rounded-2xl shadow-[0_0_20px_rgba(41,255,100,0.2)] overflow-hidden">
+        
+        {/* حقل الإدخال داخل المربع */}
+        <div className="p-4 border-b border-[#FF27F0]/100 flex items-center gap-3">
+           <span className="text-gray-400">ابحث</span>
+           <input 
+             autoFocus
+             type="text"
+             placeholder="ابحث عن يوزر أو ساحة..."
+             className="w-full bg-transparent text-white outline-none font-['Cairo'] text-sm focus:border-[#FF27F0] transition-colors"
+             value={searchQuery}
+             onChange={(e) => setSearchQuery(e.target.value)}
+           />
         </div>
+
+        {/* منطقة النتائج (سنتحكم بمحتواها لاحقاً) */}
+           <div className="max-h-[450px] overflow-y-auto p-3">
+  
+  {/* قسم المستخدمين */}
+  {results.users.length > 0 && (
+    <div className="mb-4">
+      <p className="text-[10px] text-[#29FF64] font-bold mb-2 px-2 uppercase tracking-widest">المستخدمين</p>
+      {results.users.map((user) => (
+        <div
+         key={user.userName} 
+         onClick={()=> handleResultClick('user',user.userName)}
+        className="flex items-center gap-3 p-2 hover:bg-[#29FF64]/10 rounded-xl cursor-pointer group transition-all">
+           <img src={user.Profile?.profilePic || 'avatar'} className="w-8 h-8 rounded-full border border-gray-700" />
+           <span className="text-white text-sm">{user.userName}</span>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* قسم الساحات */}
+  {results.arenas.length > 0 && (
+    <div>
+      <p className="text-[10px] text-[#29FF64] font-bold mb-2 px-2 uppercase tracking-widest">الساحات</p>
+      {results.arenas.map((arena) => (
+        <div 
+        key={arena.name}
+        onClick={()=> handleResultClick('arena',arena.name)}
+        className="fflex items-center gap-3 p-2 hover:bg-[#29FF64]/10 rounded-xl cursor-pointer group transition-all">
+           <img src={arena.logo} className="w-8 h-8 rounded-md object-contain bg-black/20" />
+           <span className="text-white text-sm font-['Cairo']">{arena.name}</span>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* في حال عدم وجود نتائج */}
+  {searchQuery.length > 1 && results.users.length === 0 && results.arenas.length === 0 && (
+    <p className="text-gray-500 text-center text-xs py-4">لا يوجد نتائج تشبه &quot;{searchQuery}&quot;</p>
+  )}
+</div>
+        
+      </div>
+    </>
+  )}
+</div>
+
       </nav>
     </div>
   );

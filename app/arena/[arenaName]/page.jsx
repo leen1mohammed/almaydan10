@@ -13,6 +13,8 @@ export default function ArenaDetailsPage() {
   const [user, setUser] = useState(null);
   const [arenaData,setArenaData]=useState(null);
   const decodedName = decodeURIComponent(arenaName);
+  const [role,setRole]=useState(null);
+  
 
   // مصفوفة الألوان الخمسة اللي طلبتيها لمربعات الرسائل
   const bubbleColors = [
@@ -69,6 +71,10 @@ export default function ArenaDetailsPage() {
 
     const currentUser = await authService.getCurrentUser();
     setUser(currentUser);
+
+    const userRole= await authService.getUserRole(currentUser.userName);
+      setRole(userRole)
+      console.log("تم التعرف على المستخدم",currentUser.userName,"بدور:",userRole);
 
     const data = await arenaService.getArenaContent(decodedName);
     setMessages(data);
@@ -159,12 +165,14 @@ export default function ArenaDetailsPage() {
           boxShadow: '0 6px 37.5px -15px #FF27F0'
         }}
       >
-
         <div className="flex flex-col gap-2">
+        { role==='participant'&&(
            <button 
             onClick={handleLeave}
            className="w-[120px] py-1 border border-[#FF27F0] text-white rounded-full font-bold text-sm font-['Cairo']"
-           >خروج</button>
+           >خروج
+           </button>
+           )}
         </div>
         <button onClick={() => router.back()} className="text-[#29FF64] font-bold font-['Cairo']"> السابق</button>
         
@@ -253,6 +261,7 @@ export default function ArenaDetailsPage() {
     </div>))}</section>
 
       {/* 3. مربع البحث/الإرسال (المواصفات: 109px height) */}
+      {role==='participant'&&(
       <footer className="fixed bottom-10 z-50">
         <div 
           className="flex items-center w-[1100px] h-[100px] px-8 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
@@ -274,6 +283,7 @@ export default function ArenaDetailsPage() {
           />
         </div>
       </footer>
+      )}
     </main>
   );
 }
