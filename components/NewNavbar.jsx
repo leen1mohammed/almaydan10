@@ -28,70 +28,79 @@ const LiveDotSVG = () => (
   </svg>
 );
 
+// ── Silhouette shown when no user is logged in ──
+const SilhouetteSVG = () => (
+  <svg
+    width="49" height="49" viewBox="0 0 49 49"
+    fill="none" xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Background circle */}
+    <circle cx="24.5" cy="24.5" r="24.5" fill="#1A0B36" />
+    {/* Head */}
+    <circle cx="24.5" cy="18" r="7" fill="#B37FEB" opacity="0.5" />
+    {/* Body */}
+    <path
+      d="M8 42c0-9.1 7.4-16.5 16.5-16.5S41 32.9 41 42"
+      stroke="#B37FEB" strokeWidth="2" strokeLinecap="round"
+      fill="#B37FEB" opacity="0.5"
+    />
+  </svg>
+);
+
 const DEFAULT_AVATAR = "/images/avatars/avatar1.png";
 
 export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [profilePic, setProfilePic] = useState(DEFAULT_AVATAR);
+  const [profilePic, setProfilePic] = useState(null); // null = not loaded yet
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkSession=async()=>{
-        const{data}=await supabase.auth.getSession();
-        console.log("session",data.session)
-    };
-    checkSession();
-    const initAuth = async () => {
-        console.log("start init")
-      const currentUser = await authService.getCurrentUser();
-      console.log("user:",currentUser)
-      setUser(currentUser);
+  const initAuth = async () => {
+    const currentUser = await authService.getCurrentUser();
+    setUser(currentUser);
 
     if (currentUser?.userName) {
-      // Check admin
       const isAdminUser = await authService.checkIsAdmin(currentUser.userName);
-        console.log("isadmin:",isAdminUser)
       setIsAdmin(isAdminUser);
 
-      // Fetch profile picture from Profile table
       const { data: profileData } = await supabase
         .from("Profile")
         .select("profilePic")
         .eq("pruserName", currentUser.userName)
         .maybeSingle();
 
-      if (profileData?.profilePic) {
-        setProfilePic(profileData.profilePic);
-      }
+      setProfilePic(profileData?.profilePic || DEFAULT_AVATAR);
+    } else {
+      // No user → clear profilePic so silhouette shows
+      setProfilePic(null);
     }
+
     setLoading(false);
   };
 
   useEffect(() => {
     initAuth();
 
-    // Listen for auth changes (login / logout)
     const { data: authListener } = authService.onAuthChange((event, session) => {
       if (event === "SIGNED_OUT") {
         setUser(null);
         setIsAdmin(false);
-        setProfilePic(DEFAULT_AVATAR);
-      } else if (session?.user) {
+        setProfilePic(null); // ← triggers silhouette
+        setLoading(false);
+      } else if (event === "SIGNED_IN" && session?.user) {
         initAuth();
       }
     });
 
-    return () => data?.subscription?.unsubscribe();
+    return () => authListener?.subscription?.unsubscribe();
   }, []);
 
   const handleProtectedAction = (path) => {
     if (!user) {
-      //.preventDefault(); // منع الانتقال للرابط
-      router.push("/login"); // التوجيه لصفحة تسجيل الدخول
-    } else{
-        router.push(path)
+      router.push("/login");
+    } else {
+      router.push(path);
     }
   };
 
@@ -114,67 +123,54 @@ export default function Navbar() {
           <Link href="/matches" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             جدول المباريات
           </Link>
-
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-
           <Link href="/live" className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap">
             <LiveDotSVG />
             <span>الآن</span>
           </Link>
-
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-
-          {/* الساحة: محمي بشرط تسجيل الدخول (شرط 1) */}
-          <button
-            onClick={()=>handleProtectedAction("/arena")}
-            className="hover:text-esport-primary transition-colors whitespace-nowrap"
-          >
+          <button onClick={() => handleProtectedAction("/arena")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
             الساحة
-        </button>
-          {/* المعسكر: محمي بشرط تسجيل الدخول + يختفي للأدمن (شرط 1 و 3) */}
+          </button>
           {!isAdmin && (
             <>
               <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-              <button
-                onClick={() =>handleProtectedAction("/camp")}
-                className="hover:text-esport-primary transition-colors whitespace-nowrap"
-              >
+              <button onClick={() => handleProtectedAction("/camp")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
                 المعسكر
               </button>
             </>
           )}
-
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-
           <Link href="/homidan" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             اسأل حميدان
           </Link>
-
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
-
           <Link href="/about" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             حول
           </Link>
-
-
-
         </div>
 
         {/* LEFT: Profile + Search */}
         <div className="flex items-center gap-4 justify-self-start">
-          {/* Profile picture — shows real avatar if logged in */}
           <div
             onClick={() => user ? router.push("/profile") : router.push("/login")}
-            className="w-[49px] h-[49px] rounded-full border-2 border-[#722ED1] hover:border-esport-primary transition-all cursor-pointer overflow-hidden relative"
+            className="w-[49px] h-[49px] rounded-full border-2 border-[#722ED1] hover:border-esport-primary transition-all cursor-pointer overflow-hidden relative flex items-center justify-center"
           >
-            {!loading && (
+            {loading ? (
+              // Pulse placeholder while loading
+              <div className="w-full h-full rounded-full bg-[#1A0B36] animate-pulse" />
+            ) : user && profilePic ? (
+              // Logged in → show their avatar
               <Image
-                src={user ? profilePic : DEFAULT_AVATAR}
+                src={profilePic}
                 alt="User"
                 fill
                 className="object-cover"
                 unoptimized
               />
+            ) : (
+              // Logged out → show silhouette
+              <SilhouetteSVG />
             )}
           </div>
 

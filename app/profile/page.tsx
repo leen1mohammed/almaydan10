@@ -1,17 +1,14 @@
 'use client';
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Glow from "./Glow";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
 
-// ─────────────────────────────────────────────
-// All available avatars from /public
-// ─────────────────────────────────────────────
 const AVATARS = [
   "/images/avatars/avatar1.png",
-  "/images/avatars/avatar2.png",
   "/images/avatars/avatar3.png",
+  "/images/avatars/avatar2.png",
   "/images/avatars/avatar6.png",
   "/images/avatars/avatar7.png",
   "/images/avatars/avatar8.png",
@@ -21,6 +18,8 @@ const AVATARS = [
   "/images/avatars/avatar12.png",
 ];
 
+const DEFAULT_AVATAR = "/images/avatars/avatar1.png";
+
 // ─────────────────────────────────────────────
 // Avatar Picker Modal
 // ─────────────────────────────────────────────
@@ -28,21 +27,21 @@ function AvatarModal({
   current,
   onSelect,
   onClose,
+  isFirstLogin,
 }: {
   current: string;
   onSelect: (src: string) => void;
   onClose: () => void;
+  isFirstLogin: boolean;
 }) {
   const [selected, setSelected] = useState(current);
 
   return (
-    // Backdrop
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(6,17,37,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
+      onClick={isFirstLogin ? undefined : onClose} // can't close by clicking outside on first login
     >
-      {/* Modal box — stop click from closing when clicking inside */}
       <div
         className="relative w-full max-w-[600px] mx-4 rounded-2xl p-[1.5px]"
         style={{ background: "linear-gradient(135deg, #FF27F0, #B37FEB, #29FF64)" }}
@@ -54,15 +53,25 @@ function AvatarModal({
         >
           {/* Header */}
           <div className="flex items-center justify-between" dir="rtl">
-            <h2 className="text-[22px] font-[900] text-white font-['Cairo']">
-              اختر صورتك الشخصية
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white/40 hover:text-white text-[22px] transition-colors leading-none"
-            >
-              ✕
-            </button>
+            <div>
+              <h2 className="text-[22px] font-[900] text-white font-['Cairo']">
+                اختر صورتك الشخصية
+              </h2>
+              {isFirstLogin && (
+                <p className="text-white/40 text-[13px] font-['Cairo'] mt-1">
+                  مرحباً! اختر أفاتار يمثلك في الميدان 🎮
+                </p>
+              )}
+            </div>
+            {/* Only show close button if not first login */}
+            {!isFirstLogin && (
+              <button
+                onClick={onClose}
+                className="text-white/40 hover:text-white text-[22px] transition-colors leading-none"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Avatar Grid */}
@@ -79,19 +88,12 @@ function AvatarModal({
                     background: isSelected
                       ? "linear-gradient(135deg, #FF27F0, #29FF64)"
                       : "transparent",
-                    boxShadow: isSelected
-                      ? "0 0 18px rgba(255,39,240,0.6)"
-                      : "none",
+                    boxShadow: isSelected ? "0 0 18px rgba(255,39,240,0.6)" : "none",
                   }}
                 >
                   <div className="w-full aspect-square rounded-full overflow-hidden bg-[#1A0B36]">
-                    <img
-                      src={src}
-                      alt="avatar"
-                      className="w-full h-full object-cover rounded-full"
-                    />
+                    <img src={src} alt="avatar" className="w-full h-full object-cover rounded-full" />
                   </div>
-                  {/* Checkmark on selected */}
                   {isSelected && (
                     <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#29FF64] flex items-center justify-center border-2 border-[#0D0A2E]">
                       <span className="text-[#0D0A2E] text-[11px] font-black">✓</span>
@@ -102,16 +104,12 @@ function AvatarModal({
             })}
           </div>
 
-          {/* Confirm Button */}
+          {/* Confirm */}
           <button
-            onClick={() => {
-              onSelect(selected);
-              onClose();
-            }}
+            onClick={() => { onSelect(selected); onClose(); }}
             className="w-full py-3 rounded-[30px] border-[1.4px] border-[#B37FEB] text-[#0B051E] font-[800] text-[18px] transition-all hover:shadow-[0_0_25px_rgba(41,255,100,0.8)] active:scale-95 font-['Cairo']"
             style={{
-              background:
-                "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
+              background: "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
               backgroundBlendMode: "soft-light, normal",
               boxShadow: "0 0 20px 2px rgba(41,255,100,0.5)",
             }}
@@ -148,16 +146,17 @@ export default function ProfilePage() {
   const [username, setUsername]     = useState("");
   const [email, setEmail]           = useState("");
   const [bio, setBio]               = useState("");
-  const [profilePic, setProfilePic] = useState("/images/avatars/avatar1.png");
+  const [profilePic, setProfilePic] = useState(DEFAULT_AVATAR);
   const [zoneinfo, setZoneinfo]     = useState("");
   const [loading, setLoading]       = useState(true);
   const [isSaving, setIsSaving]     = useState(false);
   const [saveMsg, setSaveMsg]       = useState<string | null>(null);
   const [showModal, setShowModal]   = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // ── Fetch all data ──
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
@@ -165,6 +164,7 @@ export default function ProfilePage() {
         const user = await authService.getCurrentUser();
         if (!user) { setLoading(false); return; }
 
+        // ✅ name now comes correctly from authService
         setEmail(user.email);
         setUsername(user.userName);
         setName(user.name);
@@ -177,7 +177,7 @@ export default function ProfilePage() {
 
         if (profileData) {
           setBio(profileData.bio ?? "");
-          setProfilePic(profileData.profilePic || "/images/avatars/avatar1.png");
+          setProfilePic(profileData.profilePic || DEFAULT_AVATAR);
         }
 
         const { data: participantData } = await supabase
@@ -188,6 +188,13 @@ export default function ProfilePage() {
 
         if (participantData) setZoneinfo(participantData.zoneinfo ?? "");
 
+        // ✅ Auto-open avatar modal if coming from first login
+        const firstLogin = searchParams.get("firstLogin") === "true";
+        if (firstLogin) {
+          setIsFirstLogin(true);
+          setShowModal(true);
+        }
+
       } catch (err) {
         console.error("Fetch error:", err);
       } finally {
@@ -197,7 +204,24 @@ export default function ProfilePage() {
     fetchAll();
   }, []);
 
-  // ── Save ──
+  // ── Save — also saves avatar immediately on first login confirm ──
+  const handleAvatarSelect = async (src: string) => {
+    setProfilePic(src);
+
+    // If first login, save avatar immediately when they confirm
+    if (isFirstLogin && username) {
+      await supabase
+        .from("Profile")
+        .update({ profilePic: src })
+        .eq("pruserName", username);
+
+      setIsFirstLogin(false);
+
+      // Remove ?firstLogin=true from URL cleanly
+      router.replace("/profile");
+    }
+  };
+
   const handleSave = async () => {
     if (!username) return;
     setIsSaving(true);
@@ -218,7 +242,6 @@ export default function ProfilePage() {
     setIsSaving(false);
   };
 
-  // ── Logout ──
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
@@ -234,12 +257,12 @@ export default function ProfilePage() {
 
   return (
     <>
-      {/* Avatar picker modal */}
       {showModal && (
         <AvatarModal
           current={profilePic}
-          onSelect={(src) => setProfilePic(src)}
+          onSelect={handleAvatarSelect}
           onClose={() => setShowModal(false)}
+          isFirstLogin={isFirstLogin}
         />
       )}
 
@@ -261,18 +284,11 @@ export default function ProfilePage() {
 
           {/* Header: Avatar + Save */}
           <div className="flex flex-row items-center justify-between w-full mb-14">
-
-            {/* Avatar */}
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-[120px] h-[120px] rounded-full border-[1.5px] border-[#B37FEB] overflow-hidden p-1 bg-[#1A0B36] shadow-[0_0_20px_rgba(179,127,235,0.4)]">
-                  <img
-                    src={profilePic}
-                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                  <img src={profilePic} alt="Profile" className="w-full h-full rounded-full object-cover" />
                 </div>
-                {/* Edit button → opens modal */}
                 <button
                   onClick={() => setShowModal(true)}
                   className="absolute bottom-0 right-0 bg-[#74C38E] w-10 h-10 rounded-full border-2 border-[#0B051E] flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
@@ -281,20 +297,19 @@ export default function ProfilePage() {
                 </button>
               </div>
               <div className="text-right">
+                {/* ✅ name now shows correctly */}
                 <h2 className="text-[24px] font-bold">{name || "الاسم"}</h2>
                 <p className="text-[16px] opacity-60">@{username || "username"}</p>
               </div>
             </div>
 
-            {/* Save */}
             <div className="flex flex-col items-center gap-2">
               <button
                 onClick={handleSave}
                 disabled={isSaving}
                 className="flex items-center justify-center w-[160px] h-[45px] px-[16px] rounded-[30px] border-[1.4px] border-[#B37FEB] text-[#0B051E] font-[800] text-[16px] transition-all hover:shadow-[0_0_25px_rgba(41,255,100,0.8)] active:scale-95 disabled:opacity-50"
                 style={{
-                  background:
-                    "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
+                  background: "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
                   backgroundBlendMode: "soft-light, normal",
                   boxShadow: "0 0 20px 2px rgba(41,255,100,0.5)",
                 }}
@@ -302,10 +317,8 @@ export default function ProfilePage() {
                 {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
               </button>
               {saveMsg && (
-                <p
-                  className="text-sm font-bold animate-pulse"
-                  style={{ color: saveMsg.includes("❌") ? "#FF27F0" : "#29FF64" }}
-                >
+                <p className="text-sm font-bold animate-pulse"
+                  style={{ color: saveMsg.includes("❌") ? "#FF27F0" : "#29FF64" }}>
                   {saveMsg}
                 </p>
               )}
@@ -322,9 +335,7 @@ export default function ProfilePage() {
 
           {/* عنك */}
           <div className="w-full flex flex-col gap-3 mb-12">
-            <label className="text-[20px] font-[700] text-right text-white font-['Cairo']">
-              عنك
-            </label>
+            <label className="text-[20px] font-[700] text-right text-white font-['Cairo']">عنك</label>
             <p className="text-right text-white/40 text-[13px] -mt-1">
               ألعابك المفضلة • فريقك المفضل • نبذة عنك • أهدافك في الإيسبورتس
             </p>
@@ -342,9 +353,7 @@ export default function ProfilePage() {
           {/* Zone Info Card */}
           <div className="w-full mb-14">
             <div className="flex items-center justify-end gap-3 mb-4">
-              <label className="text-[22px] font-[900] text-right text-white font-['Cairo']">
-                زون إنفو
-              </label>
+              <label className="text-[22px] font-[900] text-right text-white font-['Cairo']">زون إنفو</label>
               <span className="text-[28px]">🏆</span>
             </div>
 
@@ -362,14 +371,12 @@ export default function ProfilePage() {
                 <p className="text-right text-white/40 text-[13px] font-['Cairo']">
                   سجّل إنجازاتك الكبرى، بطولاتك، ومسيرتك في عالم الإيسبورتس 🎮
                 </p>
-
                 <div
                   className="absolute top-4 left-4 text-[11px] font-bold px-3 py-1 rounded-full border border-[#FF27F0]/40 text-[#FF27F0]"
                   style={{ background: "rgba(255,39,240,0.08)" }}
                 >
                   ZONE
                 </div>
-
                 <textarea
                   value={zoneinfo}
                   onChange={(e) => setZoneinfo(e.target.value)}
@@ -378,7 +385,6 @@ export default function ProfilePage() {
                   placeholder={`مثال:\n🥇 المركز الأول في بطولة PUBG الرياض 2024\n🏅 عضو فريق Phantom Wolves\n⚡ 3 سنوات تنافسية في Valorant`}
                   className="w-full bg-transparent border-[1.5px] border-[#B37FEB]/30 rounded-xl px-[14px] py-[12px] text-right text-sm text-white outline-none focus:border-[#FF27F0] focus:ring-1 focus:ring-[#FF27F0]/50 transition-all resize-none font-['Cairo'] leading-loose placeholder:text-white/15"
                 />
-
                 <div className="flex items-center justify-between">
                   <p className="text-white/25 text-[12px]">{zoneinfo.length}/500</p>
                   <div className="flex gap-1">
@@ -387,14 +393,8 @@ export default function ProfilePage() {
                         key={i}
                         className="w-2 h-2 rounded-full transition-all duration-300"
                         style={{
-                          background:
-                            zoneinfo.length > i * 100
-                              ? `hsl(${280 + i * 20}, 90%, 65%)`
-                              : "rgba(255,255,255,0.1)",
-                          boxShadow:
-                            zoneinfo.length > i * 100
-                              ? `0 0 6px hsl(${280 + i * 20}, 90%, 65%)`
-                              : "none",
+                          background: zoneinfo.length > i * 100 ? `hsl(${280 + i * 20}, 90%, 65%)` : "rgba(255,255,255,0.1)",
+                          boxShadow: zoneinfo.length > i * 100 ? `0 0 6px hsl(${280 + i * 20}, 90%, 65%)` : "none",
                         }}
                       />
                     ))}
@@ -407,10 +407,7 @@ export default function ProfilePage() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            
-        onClick={handleLogout}
-        className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] 
-        rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95"
+            className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95"
           >
             تسجيل خروج
           </button>
