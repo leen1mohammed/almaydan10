@@ -131,8 +131,8 @@ export default function VisitorProfilePage() {
             />
           </div>
           <div className="text-center">
-            <h2 className="text-[28px] font-[900]">{name || username}</h2>
-            <p className="text-[16px] opacity-50 mt-1">@{username}</p>
+            <h2 className="text-[28px] font-[900]">{name || decodeURIComponent(username)}</h2>
+            <p className="text-[16px] opacity-50 mt-1">@{decodeURIComponent(username)}</p>
           </div>
         </div>
 
