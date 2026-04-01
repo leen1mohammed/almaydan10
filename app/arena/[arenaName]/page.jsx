@@ -1,0 +1,289 @@
+'use client';
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { arenaService } from '@/services/arenaService';
+import { authService } from '@/services/authService';
+import { supabase } from '../../../lib/supabase';
+
+export default function ArenaDetailsPage() {
+  const { arenaName } = useParams();
+  const router = useRouter();
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [user, setUser] = useState(null);
+  const [arenaData,setArenaData]=useState(null);
+  const decodedName = decodeURIComponent(arenaName);
+  const [role,setRole]=useState(null);
+  
+
+  // مصفوفة الألوان الخمسة اللي طلبتيها لمربعات الرسائل
+  const bubbleColors = [
+    'rgba(255, 137, 27, 0.33)', // برتقالي
+    'rgba(41, 255, 100, 0.20)', // أخضر نيون
+    'rgba(255, 39, 240, 0.20)', // وردي
+    'rgba(179, 127, 235, 0.30)', // بنفسجي
+    'rgba(0, 204, 255, 0.20)'   // أزرق سماوي
+  ];
+
+
+  const getTopWords = (msgs) => {
+  const commonWords = ['من', 'في', 'على', 'إلى', 'عن', 'مع', 'هذا', 'اللي', 'كان', 'وش', 'أنا','الله']; 
+  const counts = {};
+
+  msgs.forEach(m => {
+    const words = m.body.split(/\s+/);
+    words.forEach(w => {
+      const clean = w.trim().replace(/[^\u0621-\u064A]/g, ''); // تنظيف الكلمة (حروف عربية فقط)
+      if (clean.length > 2 && !commonWords.includes(clean)) {
+        counts[clean] = (counts[clean] || 0) + 1;
+      }
+    });
+  });
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8); // نأخذ أهم 8 كلمات فقط عشان ما تزدحم الساحة
+};
+
+
+  const formatMessageDate = (dateString) => {
+  if (dateString === 'الآن') return 'الآن';
+  
+  const msgDate = new Date(dateString);
+  const now = new Date();
+  const diffInMinutes = Math.floor((now - msgDate) / 60000);
+
+  if (diffInMinutes < 1) return 'الآن';
+  if (diffInMinutes < 60) return` منذ ${diffInMinutes} د`;
+  
+  // بعد ساعة يظهر التاريخ فقط
+  return msgDate.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' });
+};
+
+ useEffect(() => {
+  const loadInitialMessages = async () => {
+
+    const decodedName = decodeURIComponent(arenaName);
+    // جلب بيانات الساحة نفسها عشان ناخذ الصورة
+    const allArenas = await arenaService.getAllArenas();
+    const currentArena = allArenas.find(a => a.name === decodedName);
+    setArenaData(currentArena);
+
+    const currentUser = await authService.getCurrentUser();
+    setUser(currentUser);
+
+    const userRole= await authService.getUserRole(currentUser.userName);
+      setRole(userRole)
+      console.log("تم التعرف على المستخدم",currentUser.userName,"بدور:",userRole);
+
+    const data = await arenaService.getArenaContent(decodedName);
+    setMessages(data);
+     };
+     loadInitialMessages();
+     // 2. تفعيل "الاستقبال اللحظي" (Real-time)
+  const channel = supabase
+    .channel('arena-chat') // اسم القناة
+    .on(
+      'postgres_changes', 
+      { event: 'INSERT', schema: 'public', table: 'ArenaItem', filter: `ArenaName=eq.${decodedName}` },
+      async(payload) => {
+       console.log("وصلت رسالة جديدة", payload)
+       const newMsg=payload.new
+       const { data: prof } = await supabase
+      .from('Profile')
+      .select('profilePic')
+      .eq('pruserName', newMsg.PUserName)
+      .single();
+
+    const newMessageWithProfile = {
+      ...newMsg,
+      Profile: prof // نضعها داخل Profile مفرد كما في السيرفس
+    };
+
+    setMessages((current) => [newMessageWithProfile, ...current]);
+  }
+)
+    .subscribe((status)=>
+        console.log("حالة الاتصال الحالية:",status)
+    );
+    // تنظيف الاتصال عند إغلاق الصفحة
+    return () => {
+    supabase.removeChannel(channel);
+    };
+    }, [decodedName]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !user) return;
+    
+
+    try {
+      await arenaService.addArenaItem(decodedName, newMessage);
+      setNewMessage("");
+    } catch (error) 
+    { console.error("فشل الارسال", error.message); }
+  };
+
+  const handleLeave = async () => {
+  const confirmLeave = window.confirm("متأكد تبغى تغادر الساحة؟");
+  
+  if (confirmLeave) {
+    try {
+      // حركة الفزعة: لو الـ user لسه null، نحاول نجيبه مباشرة من السيرفس
+      let currentUser = user;
+      if (!currentUser) {
+        currentUser = await authService.getCurrentUser();
+      }
+
+      if (!currentUser) {
+        alert("يا بطل، النظام مو قادر يلقى حسابك. جرب تسجل دخول مرة ثانية.");
+        router.push('/login');
+        return;
+      }
+
+      const result = await arenaService.leaveArena(currentUser.userName, decodedName);
+      
+      if (result.success) {
+        alert("تم الخروج بنجاح! ننتظرك ترجع لنا أقوى 🫡");
+        router.push('/arena');
+      }
+    } catch (error) {
+      console.error("خطأ تقني:", error.message);
+    }
+  }
+};
+  return (
+    <main className="min-h-screen w-full bg-[#061125] flex flex-col items-center">
+      
+      {/* 1. الهيدر (المواصفات: 1280x194px) */}
+      <header 
+        className="relative w-full max-w-[1440px] h-[140px] rounded-b-[30px] border-x border-b border-[#29FF64] flex items-center 
+        justify-between px-10 overflow-hidden"
+        style={{
+          background: `linear-gradient(0deg, rgba(0, 0, 0, 0.00) -16.82%, #061125 95.81%), 
+          linear-gradient(0deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.62) 100%),
+           url(${arenaData?.pic}) lightgray -6.412px -678.032px / 101.002% 1050% no-repeat`,
+          boxShadow: '0 6px 37.5px -15px #FF27F0'
+        }}
+      >
+        <div className="flex flex-col gap-2">
+        { role==='participant'&&(
+           <button 
+            onClick={handleLeave}
+           className="w-[120px] py-1 border border-[#FF27F0] text-white rounded-full font-bold text-sm font-['Cairo']"
+           >خروج
+           </button>
+           )}
+        </div>
+        <button onClick={() => router.back()} className="text-[#29FF64] font-bold font-['Cairo']"> السابق</button>
+        
+      </header>
+
+    <div className="relative w-full max-w-[800px] h-[240px] mx-auto mt-2 mb-0 overflow-hidden flex justify-center items-center">
+  {getTopWords(messages).map(([word, count], i) => {
+    const neonColors = ['#B37FEB', '#29FF64', '#FF27F0', '#FF891B', '#00CCFF', '#FFD700'];
+    
+    // مواقع مركزية ومضغوطة لتقليل المسافات البينية
+    const compactPositions = [
+      { top: '40%', left: '42%' }, // الكلمة المركزية
+      { top: '28%', left: '32%' },
+      { top: '50%', left: '25%' },
+      { top: '35%', left: '55%' },
+      { top: '55%', left: '48%' },
+      { top: '22%', left: '45%' },
+      { top: '65%', left: '35%' },
+      { top: '45%', left: '60%' },
+      { top: '18%', left: '35%' },
+      { top: '65%', left: '50%' },
+    ];
+
+    const pos = compactPositions[i % compactPositions.length];
+
+    return (
+      <span 
+        key={i}
+        className="absolute font-['Cairo'] font-black transition-all duration-500 hover:scale-125 cursor-default select-none whitespace-nowrap"
+        style={{ 
+          top: pos.top,
+          left: pos.left,
+          fontSize: `${Math.min(72, 12 + count *11)}px`, // تكبير الأحجام قليلاً لتعويض التباعد
+          color: neonColors[i % neonColors.length],
+          //textShadow: `0 0 15px ${neonColors[i % neonColors.length]}`,
+          // التعديل الأساسي هنا: تم حذف الـ rotate لتصبح الكلمات مستقيمة
+          transform: `translate(-50%, -50%)`, 
+          zIndex: 10 - i,
+        }}
+      >
+        {word}
+      </span>
+    );
+  })}
+</div>
+
+
+      {/* 2. منطقة الرسائل (Grid تدرجات الألوان) */}
+      <section className="w-full max-w-[1200px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-10 mt-0" dir="rtl items-start">
+  {messages.map((msg, index) => (
+    <div 
+      key={index}
+      className="p-6 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)] flex flex-col text-right"
+      style={{ 
+        background: bubbleColors[index % 5],
+        width: '314px', 
+        height:'fit-content',
+        minHeight: '150px' 
+      }} >
+      {/* الهيدر الصغير داخل الكرت */}
+      <div className="flex items-center justify-between mb-4 flex-row-reverse">
+        {/* الوقت على اليسار */}
+        <span className="text-[#AFADAD] text-[12px] font-['Cairo']">
+          {formatMessageDate(msg.created_at || 'الآن')}
+        </span>
+    
+        {/* اليوزر والصورة على اليمين */}
+        <div className="flex items-center gap-2 flex-row-reverse">
+            <span className="text-white font-extrabold text-[14px] font-['Cairo']">
+            @{msg.PUserName || 'لاعب_مجهول'}
+          </span>
+             <div className="w-[46px] h-[46px] rounded-full border border-[#FF27F0] overflow-hidden flex-shrink-0">
+            <img 
+              src={msg.Profile?.profilePic || "/images/avatar-default.png"} 
+              className="w-full h-full object-cover" 
+              alt="avatar"
+            />
+          </div>
+          
+          </div> </div>
+      {/* محتوى الرسالة */}
+      <p className="text-white text-right leading-relaxed font-['Cairo'] text-[15px] opacity-90 break-words 
+      whitespace-pre-wrap flex-grow">
+        {msg.body}
+      </p>
+    </div>))}</section>
+
+      {/* 3. مربع البحث/الإرسال (المواصفات: 109px height) */}
+      {role==='participant'&&(
+      <footer className="fixed bottom-10 z-50">
+        <div 
+          className="flex items-center w-[1100px] h-[100px] px-8 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
+          style={{
+            background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.80) 11.46%, rgba(255, 255, 255, 0.80) 34.44%, rgba(255, 255, 255, 0.00) 66.52%, rgba(255, 255, 255, 0.80) 94.31%), #12082A',
+            backgroundBlendMode: 'soft-light, normal'
+          }}
+        >
+          <button onClick={handleSend} className="p-4 hover:scale-110 transition-transform text-[#29FF64] font-bold font-['Cairo']">
+             ارسال
+          </button>
+          <input 
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="شاركنا تعليقك........."
+            className="flex-1 bg-transparent border-none text-right text-white text-[20px] font-medium font-['Cairo'] 
+            outline-none placeholder:text-[#9D9D9D]"
+          />
+        </div>
+      </footer>
+      )}
+    </main>
+  );
+}
