@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
+
 import MatchCard from "@/components/MatchCard";
 import { MatchStatus, Match } from "@/types/match";
 
@@ -60,7 +60,7 @@ export default function MatchesPage() {
 
   return (
     <main className="min-h-screen bg-[#061125] text-white">
-      <Navbar />
+      
 
       <div className="mx-auto mt-10 max-w-[1100px] px-6">
         <div className="mb-6 flex justify-center gap-4">

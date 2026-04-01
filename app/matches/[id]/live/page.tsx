@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import Navbar from "@/components/Navbar";
+
 
 type MatchStatus = "UPCOMING" | "LIVE" | "FINISHED";
 
@@ -363,7 +363,7 @@ export default function LivePage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#061125] text-white">
-      <Navbar />
+     
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_75%,rgba(41,255,100,0.10),transparent_20%),radial-gradient(circle_at_88%_16%,rgba(179,127,235,0.12),transparent_22%),radial-gradient(circle_at_50%_100%,rgba(41,255,100,0.06),transparent_28%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.3)_1px,transparent_1px)] [background-size:34px_34px]" />
