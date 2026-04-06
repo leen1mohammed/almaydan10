@@ -138,7 +138,7 @@ export default function VisitorProfilePage() {
 
         {/* ── عنك (Bio) — always visible ── */}
         <div className="w-full flex flex-col gap-3 mb-10">
-          <h3 className="text-[20px] font-[700] text-right text-white">عنك</h3>
+          <h3 className="text-[20px] font-[700] text-right text-white">عنه</h3>
           <p className="text-right text-white/40 text-[13px] -mt-1">
             ألعابه المفضلة • فريقه المفضل • نبذة عنه • أهدافه في الإيسبورتس
           </p>
