@@ -3,6 +3,7 @@ import React, { useState,useEffect } from 'react';
 import ArenaCard from '../../components/ArenaCard';
 import { arenaService } from '../../services/arenaService';
 import { authService } from '../../services/authService';
+import { supabase } from '../../lib/supabase';
 
 export default function ArenaPage() {
   const [activeTab, setActiveTab] = useState('all'); // 'all' أو 'my-arenas'
@@ -13,28 +14,7 @@ export default function ArenaPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newArena, setNewArena] = useState({ name: '', description: '', image: '', logo: '' });
 
-
-  const handleCreateSubmit = async () => {
-  // فحص بسيط قبل الإرسال
-  if (!newArena.name || !newArena.image) {
-    alert("البيانات ناقصة يا رئيسة! ");
-    return;
-  }
-
-  // استدعاء السيرفس
-  const result = await arenaService.createArena(newArena);
-
-  if (result.success) {
-    alert("تمت إضافة الساحة للميدان بنجاح!");
-    setShowCreateModal(false);
-    // تحديث الصفحة عشان تظهر الساحة الجديدة فوراً
-    window.location.reload(); 
-  } else {
-    alert("فشل الإنشاء: " + result.error);
-  }
-};
-   useEffect(() => {
-  const loadArenas = async () => {
+ const loadArenas = async () => {
       try {
         setLoading(true)
         // 1. نجيب كل الساحات من جدول Arena
@@ -63,8 +43,79 @@ export default function ArenaPage() {
       }
     };
 
+useEffect(() => {
+
     loadArenas();
+     // 2. إعداد "المستمع" اللحظي (Realtime Subscription)
+  const channel = supabase
+    .channel('arena-updates') // اسم القناة (أي اسم من عندك)
+    .on(
+      'postgres_changes', 
+      { event: '*', schema: 'public', table: 'Arena' }, 
+      (payload) => {
+        console.log('تغيير جديد في الميدان!', payload);
+        loadArenas(); // بمجرد ما يحس بتغيير، يحدث القائمة عند اليوزر فوراً
+      }
+    )
+    .subscribe();
+
+  // 3. تنظيف المستمع عند الخروج من الصفحة
+  return () => {
+    supabase.removeChannel(channel);
+  };
+
+
   }, []);
+
+
+  const handleRemoveArena = (arenaName) => {
+  setArenas(prev => prev.filter(a => a.name !== arenaName));
+};
+
+  const handleCreateSubmit = async () => {
+
+  setLoading(true); // اختياري: عشان تظهر حالة تحميل
+  console.log("بدا الانشاء ...")
+  console.log("الملف المختار", newArena.imageFile)
+  
+  try {
+    console.log(" جاري استدعاء دالة الرفع...")
+    // 1. رفع صورة الخلفية
+    let imageUrl = "";
+    if (newArena.imageFile) {
+      const upload = await arenaService.uploadImage(newArena.imageFile);
+      console.log("نتيجة الرفع ", upload)
+      if (upload.success) imageUrl = upload.url;
+    }
+
+    // 2. رفع اللوقو
+    let logoUrl = "";
+    if (newArena.logoFile) {
+      const upload = await arenaService.uploadImage(newArena.logoFile);
+      if (upload.success) logoUrl = upload.url;
+    }
+    // 3. حفظ الساحة في الداتابيز بالروابط الجديدة
+    const result = await arenaService.createArena({
+      name: newArena.name,
+      description: newArena.description,
+      image: imageUrl, // الرابط اللي جابه الكود أوتوماتيكياً
+      logo: logoUrl
+    });
+
+    if (result.success) {
+      alert("تم الإنشاء والرفع بنجاح! 🚀");
+      setShowCreateModal(false);
+      loadArenas(); // تحديث القائمة فورا
+    }
+  } catch (error) {
+    alert("فشل الرفع: " + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+   
 
   useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -180,12 +231,14 @@ export default function ArenaPage() {
                 {arenas.slice(0, 3).map((arena) => (
                   <div key={arena.name} id={`arena-${arena.name}`}>
                   <ArenaCard
+                  {...arena}
                     name={arena.name}
                     image={arena.pic} // التأكد من مسمى picture
                     logo={arena.logo || "/images/logo.png"}
                     description={arena.description}
                     isjoined={myArenas.some(m => m.name === arena.name)}
                     role={role}
+                    onDeleteSuccess={handleRemoveArena}
                   />
                   </div>
                 ))}
@@ -206,12 +259,14 @@ export default function ArenaPage() {
                 {arenas.slice(3).map((arena) => (
                   <div key={arena.name} id={`arena-${arena.name}`}>
                   <ArenaCard
+                    {...arena}
                     name={arena.name}
                     image={arena.pic}
                     logo={arena.logo || "/images/logo.png"}
                     description={arena.description}
                     isjoined={myArenas.some(m => m.name === arena.name)}
                     role={role}
+                    onDeleteSuccess={handleRemoveArena}
                   />
                   </div>
                 ))}
@@ -225,6 +280,7 @@ export default function ArenaPage() {
               {myArenas.length > 0 ? (
                 myArenas.map((arena) => (
                   <ArenaCard
+                    {...arena}
                     key={arena.name}
                     name={arena.name}
                     image={arena.pic}
@@ -232,6 +288,7 @@ export default function ArenaPage() {
                     description={arena.description}
                     points={arena.userPoints}
                     isjoined={true}
+                    onDeleteSuccess={handleRemoveArena}
                   />
                 ))
               ) : (
@@ -272,22 +329,26 @@ export default function ArenaPage() {
         </div>
 
         <div>
-          <label className="text-white font-['Cairo'] block mb-2 mr-2">رابط الصورة</label>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">  صورةالخلفية </label>
           <input 
-            type="text" 
-            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none"
-            placeholder=" رابط الصورة هنا..."
-            onChange={(e) => setNewArena({...newArena, image: e.target.value})}
+            type="file" 
+            accept='image/*'
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full 
+            file:border-0 file:text-sm file:bg-[#29FF64] file:text-[#020C1F] cursor-pointer"
+            placeholder=" الصورة هنا..."
+            onChange={(e) => setNewArena({...newArena, imageFile: e.target.files[0]})}
           />
         </div>
 
         <div>
-          <label className="text-white font-['Cairo'] block mb-2 mr-2">رابط اللوقو</label>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">اللوقو</label>
           <input 
-            type="text" 
-            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none"
-            placeholder="رابط اللوقو هنا..."
-            onChange={(e) => setNewArena({...newArena, logo: e.target.value})}
+            type="file" 
+            accept='image/*'
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full 
+            file:border-0 file:text-sm file:bg-[#29FF64] file:text-[#020C1F] cursor-pointer"
+            placeholder=" اللوقو هنا..."
+            onChange={(e) => setNewArena({...newArena, logoFile: e.target.files[0] })}
           />
         </div>
 
