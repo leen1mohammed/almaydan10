@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-
+import LiveMatchChat from "@/components/LiveChat";
+import { GAME_ASSETS } from "@/lib/gameAssets";
 
 type MatchStatus = "UPCOMING" | "LIVE" | "FINISHED";
 
@@ -30,15 +31,6 @@ type MatchType = {
     main?: boolean;
     official?: boolean;
   }>;
-};
-
-type ChatMessage = {
-  id: string;
-  user: string;
-  handle: string;
-  text: string;
-  time: string;
-  avatar?: string;
 };
 
 function gameLabel(game: string) {
@@ -194,114 +186,6 @@ function TeamLogo({
   );
 }
 
-function LiveChatBox() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      user: "سعد",
-      handle: "@saad",
-      text: "المباراة نار 🔥",
-      time: "الآن",
-    },
-    {
-      id: "2",
-      user: "ريم",
-      handle: "@reem",
-      text: "الجولة هذي كانت خرافية",
-      time: "الآن",
-    },
-    {
-      id: "3",
-      user: "فيصل",
-      handle: "@f9l",
-      text: "واضح إنهم راجعين بقوة",
-      time: "الآن",
-    },
-  ]);
-
-  const [input, setInput] = useState("");
-
-  function handleSend() {
-    const value = input.trim();
-    if (!value) return;
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        user: "أنت",
-        handle: "@you",
-        text: value,
-        time: "الآن",
-      },
-    ]);
-
-    setInput("");
-  }
-
-  return (
-    <NeonCard className="px-5 py-6 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 text-right">
-          <h2 className="text-2xl font-bold text-white">المحادثة المباشرة</h2>
-          <p className="mt-2 text-sm text-white/55">
-            تفاعل مع المتابعين أثناء البث
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className="rounded-[24px] border border-[#B37FEB]/45 bg-[rgba(5,11,28,0.38)] px-5 py-4"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-bold text-white">
-                  {msg.user.slice(0, 1)}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="font-semibold text-white/95">
-                      {msg.user}
-                    </span>
-                    <span className="text-sm text-white/45">{msg.handle}</span>
-                    <span className="text-xs text-white/35">{msg.time}</span>
-                  </div>
-
-                  <p className="text-sm leading-7 text-white/85">{msg.text}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 rounded-[24px] border border-[#B37FEB]/45 bg-[rgba(5,11,28,0.38)] p-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={handleSend}
-              className="rounded-full border border-[#cb90ff]/60 bg-[linear-gradient(180deg,rgba(117,45,210,0.45),rgba(51,17,103,0.92))] px-6 py-3 font-semibold text-white transition-all duration-300 hover:scale-[1.01]"
-            >
-              إرسال
-            </button>
-
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSend();
-              }}
-              placeholder="اكتب تعليقك..."
-              className="h-12 flex-1 rounded-full border border-white/10 bg-white/5 px-5 text-right text-white outline-none placeholder:text-white/35"
-            />
-          </div>
-        </div>
-      </div>
-    </NeonCard>
-  );
-}
-
 export default function LivePage() {
   const params = useParams<{ id: string }>();
 
@@ -361,10 +245,11 @@ export default function LivePage() {
   const teamA = match?.teams?.[0];
   const teamB = match?.teams?.[1];
 
+  const coverAsset =
+    GAME_ASSETS[match?.game_type || "default"] ?? GAME_ASSETS["default"];
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#061125] text-white">
-     
-
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_75%,rgba(41,255,100,0.10),transparent_20%),radial-gradient(circle_at_88%_16%,rgba(179,127,235,0.12),transparent_22%),radial-gradient(circle_at_50%_100%,rgba(41,255,100,0.06),transparent_28%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.3)_1px,transparent_1px)] [background-size:34px_34px]" />
 
@@ -384,9 +269,22 @@ export default function LivePage() {
             <div className="absolute inset-0 bg-[linear-gradient(135deg,#22084a_0%,#1a0a3b_45%,#13082d_100%)]" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_88%,rgba(41,255,100,0.18),transparent_22%),radial-gradient(circle_at_90%_15%,rgba(185,124,255,0.18),transparent_28%)]" />
 
-            <div className="relative aspect-video rounded-[28px] border border-[#c47dff]/55 overflow-hidden">
+            <div className="relative aspect-video overflow-hidden rounded-[28px] border border-[#c47dff]/55">
+              {!loading && !pageError && (
+                <>
+                  <Image
+                    src={coverAsset.header}
+                    alt={coverAsset.title}
+                    fill
+                    className="object-cover opacity-30"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.45))]" />
+                </>
+              )}
+
               {liveUrl && !loading && !pageError && (
-                <div className="absolute top-4 right-4 z-20">
+                <div className="absolute right-4 top-4 z-20">
                   <a
                     href={liveUrl}
                     target="_blank"
@@ -400,11 +298,11 @@ export default function LivePage() {
               )}
 
               {loading ? (
-                <div className="flex h-full w-full items-center justify-center">
+                <div className="relative z-10 flex h-full w-full items-center justify-center">
                   <p className="text-white/70">جاري تحميل بيانات المباراة...</p>
                 </div>
               ) : pageError ? (
-                <div className="flex h-full w-full items-center justify-center px-6 text-center">
+                <div className="relative z-10 flex h-full w-full items-center justify-center px-6 text-center">
                   <p className="text-red-300">{pageError}</p>
                 </div>
               ) : liveUrl ? (
@@ -412,7 +310,7 @@ export default function LivePage() {
                   href={liveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative flex h-full w-full items-center justify-center cursor-pointer"
+                  className="relative z-10 flex h-full w-full cursor-pointer items-center justify-center"
                   aria-label={liveLabel}
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_42%)]" />
@@ -434,7 +332,7 @@ export default function LivePage() {
                   </div>
                 </a>
               ) : (
-                <div className="relative flex h-full w-full items-center justify-center">
+                <div className="relative z-10 flex h-full w-full items-center justify-center">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_42%)]" />
 
                   <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/10 backdrop-blur-xl">
@@ -488,7 +386,10 @@ export default function LivePage() {
 
             <div className="my-8 h-px w-full bg-gradient-to-r from-transparent via-[#29FF64] to-transparent opacity-80" />
 
-            <LiveChatBox />
+            <LiveMatchChat
+              matchId={match.id}
+              isLive={match.status === "LIVE"}
+            />
           </>
         )}
       </div>

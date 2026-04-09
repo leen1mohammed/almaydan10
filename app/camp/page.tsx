@@ -12,6 +12,8 @@ export default function CampEntryPage() {
     const routeUser = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
+        console.log("currentUser:", currentUser); // ← debug
+
         if (!currentUser?.email) {
           router.replace("/login");
           return;
@@ -32,12 +34,17 @@ export default function CampEntryPage() {
           return;
         }
 
+        console.log("userName:", userName); // ← debug
+
         // فقط Participant
-        const { data: participantRow } = await supabase
+        const { data: participantRow, error: participantError } = await supabase
           .from("Participant")
           .select("PuserName")
           .eq("PuserName", userName)
           .maybeSingle();
+
+        console.log("participantRow:", participantRow); // ← debug
+        console.log("participantError:", participantError); // ← debug
 
         if (!participantRow) {
           router.replace("/");

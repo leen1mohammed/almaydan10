@@ -559,7 +559,7 @@ export default function CampPage() {
                         <span className="text-purple-100">{m.pUserName}</span>
                         {memberIsOwner && (
                           <span className="rounded-full border border-pink-400/40 bg-pink-500/10 px-2 py-1 text-xs text-pink-200">
-                            المالك
+                            القائد
                           </span>
                         )}
                       </li>
@@ -576,7 +576,7 @@ export default function CampPage() {
           <div className="mb-4 h-[430px] overflow-y-auto rounded-2xl bg-black/15 p-3 md:p-4">
             {messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                لا توجد رسائل بعد. ابدئي أول رسالة ✨
+                لا توجد رسائل بعد. 
               </div>
             ) : (
               <div className="space-y-3">
