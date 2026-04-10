@@ -100,6 +100,15 @@ export const loginUser = async (userName, password) => {
   return { success: true, data, isFirstLogin };
 };
 
+export const checkEmail = async (email) => {
+  const { data, error } = await supabase
+    .from('Member')
+    .select('email')
+    .eq('email', email)
+    .single();
+
+  return !!data; // يرجع true إذا حصل إيميل، و false إذا ما حصل
+};
 // ─────────────────────────────────────────────
 // AUTH SERVICE
 // ─────────────────────────────────────────────
