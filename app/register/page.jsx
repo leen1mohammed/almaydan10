@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import Glow from '../login/Glow';
-import { registerUser, checkUsername,checkEmail } from '@/services/authService';
+import { registerUser, checkUsername,checkEmail,signInWithGoogle } from '@/services/authService';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation'; // ✅ added
 
@@ -173,9 +173,26 @@ export default function RegisterPage() {
             {isLoading ? "جاري إنشاء الحساب..." : "إنشاء الحساب"}
           </button>
 
+          <button
+              type="button"
+              onClick={async () => {
+                const res = await signInWithGoogle();
+                if (!res.success) {
+                  alert(res.message);
+                }
+              }}
+              className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] transition-all 
+              duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
+              border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
+            >
+              التسجيل باستخدام Google
+            </button>
+
+
           {/* رابط تسجيل الدخول */}
           <div className="text-center mt-4 text-[14px]">
             <span className="font-[500]">عندك حساب؟ </span>
+            <span></span>
             <Link href="/login" className="font-[800] text-white transition-all duration-300 hover:text-[#FF27F0]">
               سجل دخولك
             </Link>

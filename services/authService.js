@@ -109,6 +109,22 @@ export const checkEmail = async (email) => {
 
   return !!data; // يرجع true إذا حصل إيميل، و false إذا ما حصل
 };
+
+// GOOGLE LOGIN
+export const signInWithGoogle = async () => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: 'http://localhost:3000/auth/callback', // نغيره بعدين للدومين حقنا
+    },
+  });
+
+  if (error) {
+    return { success: false, message: error.message };
+  }
+
+  return { success: true };
+};
 // ─────────────────────────────────────────────
 // AUTH SERVICE
 // ─────────────────────────────────────────────
