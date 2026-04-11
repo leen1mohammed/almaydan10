@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { authService } from '../services/authService';
 import { arenaService } from '../services/arenaService';
 
-export default function ArenaCard({ name, image, logo, description, points, isjoined ,role}) {
+export default function ArenaCard({ name, image, logo,playerCount,playerAvatars,onDeleteSuccess ,description, points, isjoined ,role}) {
   const [isFlipped, setIsFlipped] = useState(false);
   const router = useRouter();
 
@@ -51,7 +51,10 @@ const handleDelete = async (arenaName) => {
   const result = await arenaService.deleteArena(arenaName);
   if (result.success) {
     alert("تم مسح الساحة من الميدان!");
-    window.location.reload(); 
+    //window.location.reload(); 
+    if (onDeleteSuccess){
+      onDeleteSuccess(arenaName)
+    }
   } else {
     alert("فشل الحذف: " + result.error);
   }
@@ -114,10 +117,28 @@ const handleDelete = async (arenaName) => {
               {name}
             </h3>
 
-            <div className="mt-6 flex items-center gap-1 opacity-70">
-               <div className="w-6 h-6 rounded-full bg-gray-600 border border-pink-500"></div>
-               <div className="w-6 h-6 rounded-full bg-gray-500 border border-pink-500 -ml-2"></div>
-               <div className="text-[12px] text-white mr-2">عدد اللاعبين</div>
+            <div className="mt-6 flex flex-col gap-1 items-center">
+                {/* عرض الأفاتارز المتداخلة */}
+              <div className="flex -space-x-3">
+                {playerAvatars && playerAvatars.length > 0 ? (
+                  playerAvatars.map((url, index) => (
+                    <img 
+                      key={index}
+                      src={url || '/default-avatar.png'} 
+                      className="w-9 h-9 rounded-full border border-pink-500 object-cover bg-gray-800"
+                      alt="player"
+                    />
+                  ))
+                ) : (
+                  // دائرة افتراضية إذا ما فيه لاعبين
+                  <div className="w-9 h-9 rounded-full bg-gray-600 border border-pink-500"></div>
+                )}
+              </div>
+
+              {/* عرض العدد */}
+              <div className="text-[14px] font-medium text-gray-400 flex items-center gap-2">
+                <span>{playerCount || 0}</span> 
+              </div>
             </div>
           </div>
         </div>

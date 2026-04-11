@@ -6,27 +6,61 @@ export const arenaService = {
   getAllArenas: async () => {
     const { data, error } = await supabase
       .from('Arena')
-      .select('*');
+      .select(`
+        *,
+        Joins (
+          PUserName,
+          Member (
+            Profile (profilePic)
+          )
+        )
+      `);
     if (error) throw error;
-    return data;
+    
+    // سنقوم بحساب العدد وتجهيز الأفاتارز لكل ساحة
+    return data.map(arena => ({
+      ...arena,
+      playerCount: arena.Joins?.length || 0,
+      playerAvatars: arena.Joins?.slice(0, 3).map(j => j.Member?.Profile?.profilePic)||[]
+    }));
   },
+
 
   // 2. جلب الساحات التي انضم لها المستخدم مع نقاطه
   getMyArenas: async (userName) => {
+    try{
     const { data, error } = await supabase
       .from('Joins')
       .select(`
         points,
         ArenaName,
-        Arena (*) 
+        Arena (*,
+        Joins (
+          PUserName,
+          Member (
+            Profile (profilePic)
+          )
+        )
+      )
       `)
       .eq('PUserName', userName); // تصحيح اسم الحقل لـ PUserName
     
     if (error) throw error;
-    return data.map(item => ({
-      ...item.Arena,
-      userPoints: item.points
-    }));
+
+    return data.map(item =>{
+    const arena=item.Arena;
+     return{
+      ...arena,
+      userPoints: item.points,
+      playerCount: arena.Joins?.length || 0,
+      playerAvatars: arena.Joins?.slice(0, 3).map(j => j.Member?.Profile?.profilePic)||[]
+     };
+    });
+  }catch(error){
+  console.error(" خطا في جلب ساحاتي ",error);
+  return[];
+      
+}
   },
 
   // 3. جلب محتويات الساحة (المنشورات)
@@ -155,6 +189,33 @@ deleteArena: async (arenaName) => {
     if (error) throw error;
     return { success: true };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+},
+
+uploadImage: async (file) => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`; // اسم عشوائي عشان ما تتكرر الأسماء
+    const filePath = `arenas/${fileName}`;
+
+    // 1. رفع الملف للـ Bucket (تأكدي إن عندك Bucket اسمه 'arena-assets')
+    const { error: uploadError } = await supabase.storage
+      .from('arena-assets') 
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // 2. جلب الرابط العام (Public URL) للصورة
+    const { data } = supabase.storage
+      .from('arena-assets')
+      .getPublicUrl(filePath);
+
+    console.log("الرابط :", data.publicUrl)
+
+    return { success: true, url: data.publicUrl };
+  }catch (error) {
+
     return { success: false, error: error.message };
   }
 },

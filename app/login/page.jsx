@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Glow from "./Glow";
 import Link from "next/link";
-import { loginUser } from "@/services/authService";
+import { loginUser,signInWithGoogle } from "@/services/authService";
 
 export default function LoginPage() {
   const [userName, setUserName] = useState('');
@@ -36,22 +36,22 @@ export default function LoginPage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center bg-[#061125] text-white font-['Cairo'] p-4 rtl"
+      className="relative min-h-screen flex flex-col items-center justify-center bg-[#05051a] text-white font-['Cairo'] p-4 overflow-hidden"
       dir="rtl"
     >
       <Glow />
-      <div className="z-10">
+      <div className="z-10 w-full max-w-[404px] flex flex-col items-center">
         <h1
-          className="text-[80px] font-[900] leading-[100px] text-white text-center mb-20"
+          className="text-[80px] font-[900] leading-[100px] text-white text-center mb-20 whitespace-nowrap"
           style={{ textShadow: '0 3px 0 #FF27F0' }}
         >
           مرحبًا بعودتك!
         </h1>
 
-        <form className="w-full max-w-[404px] space-y-6" onSubmit={handleLogin}>
+        <form className="w-full space-y-5" onSubmit={handleLogin}>
 
           {/* اسم المستخدم */}
-          <div className="space-y-2 text-right">
+          <div className="space-y-1 text-right">
             <label className="block text-[20px] font-[500] text-white">اسم المستخدم</label>
             <input
               type="text"
@@ -64,7 +64,7 @@ export default function LoginPage() {
           </div>
 
           {/* كلمة المرور */}
-          <div className="space-y-2 text-right">
+          <div className="space-y-1 text-right">
             <label className="block text-[20px] font-[500] text-white">كلمة المرور</label>
             <input
               type="password"
@@ -88,7 +88,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] border-[#B37FEB] font-[1000] text-[20px] leading-[24px] text-white transition-all duration-300 animate-pulse hover:animate-none active:scale-95 disabled:opacity-50 disabled:animate-none"
+            className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] border-[#B37FEB] font-[1000] text-[20px] 
+            leading-[24px] text-white transition-all duration-300 animate-pulse hover:animate-none active:scale-95 
+            disabled:opacity-50 disabled:animate-none"
             style={{
               background: 'linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)',
               backgroundBlendMode: 'soft-light, normal',
@@ -98,9 +100,26 @@ export default function LoginPage() {
             {isLoading ? "جاري التحقق..." : "سجل دخول"}
           </button>
 
+
+          <button
+              type="button"
+              onClick={async () => {
+                const res = await signInWithGoogle();
+                if (!res.success) {
+                  setLoginError(res.message);
+                }
+              }}
+              className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] transition-all 
+              duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
+              border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
+            >
+              الدخول باستخدام Google
+            </button>
+
           {/* رابط التسجيل */}
           <div className="text-center mt-4 space-x-2 space-x-reverse text-[14px]">
             <span className="font-[500]">ما عندك حساب؟</span>
+            <span></span>
             <Link
               href="/register"
               className="font-[800] text-white hover:text-[#FF27F0] transition-colors cursor-pointer"
@@ -108,6 +127,8 @@ export default function LoginPage() {
               تسجيل جديد
             </Link>
           </div>
+
+          
 
         </form>
       </div>
