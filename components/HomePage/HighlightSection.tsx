@@ -238,13 +238,13 @@ const ImageBox = styled.div`
   z-index: 2;
 
   img {
-    width: 70vw;
+    width: 1200px;
     max-width: 1150px;
     min-width: 650px;
 
     height: auto;
 
-    transform: translateY(-180px) translateX(60px);
+    transform: translateY(-50px) translateX(60px);
 
     filter: drop-shadow(0 30px 55px rgba(0,0,0,0.7));
 
