@@ -3,10 +3,10 @@ import Link from 'next/link';
 import Glow from '../login/Glow';
 import { registerUser, checkUsername,checkEmail,signInWithGoogle } from '@/services/authService';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // ✅ added
+import { useRouter } from 'next/navigation'; 
 
 export default function RegisterPage() {
-  const router = useRouter(); // ✅ added
+  const router = useRouter();
 
   const [fullName, setFullName] = useState('');
   const [userName, setUserName] = useState('');
@@ -39,7 +39,7 @@ export default function RegisterPage() {
     if (val.length > 2) {
       const isTaken = await checkUsername(val);
       if (isTaken) {
-        setUserError('اووه! اليوزر هذا محجوز, جرب واحد ثاني');
+        setUserError('اووه! اسم المستخدم هذا محجوز, جرب واحد ثاني');
       } else {
         setUserError('');
       }

@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-
+import{sendWelcomeEmail} from "../services/EmailService";
 // ─────────────────────────────────────────────
 // REGISTER
 // ─────────────────────────────────────────────
@@ -30,6 +30,9 @@ export const registerUser = async (email, password, userName, fullName) => {
     ]);
     if (participantError) throw participantError;
 
+    await sendWelcomeEmail(fullName,email);
+
+
     // 5. ✅ Auto sign-in after registration so user doesn't need to login manually
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -48,6 +51,8 @@ export const registerUser = async (email, password, userName, fullName) => {
     console.error("خطأ في التسجيل:", err.message);
     return { success: false, message: "حصلت مشكلة في تجهيز الجداول المرتبطة." };
   }
+
+
 };
 
 // ─────────────────────────────────────────────

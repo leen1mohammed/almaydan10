@@ -118,7 +118,7 @@ function AvatarModal({
 // ─────────────────────────────────────────────
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-2 w-full" dir='rtl'>
       <label className="text-[18px] font-[600] text-right text-white/80 font-['Cairo']">{label}</label>
       <div className="w-full h-[40px] bg-white/5 border-[1.5px] border-[#B37FEB]/40 rounded-md px-[12px] flex items-center justify-end text-sm text-white/50 font-['Cairo'] cursor-not-allowed select-none">
         {value || "—"}
@@ -388,13 +388,13 @@ export default function ProfilePage() {
                   placeholder="مثال: أنا لاعب فورتنايت منذ 2019، فريقي المفضل Falcons، هدفي الوصول للمحترفين..."
                   className="w-full bg-transparent border-[1.5px] border-[#B37FEB] rounded-xl px-[14px] py-[12px] text-right text-sm text-white outline-none focus:border-[#FF27F0] focus:ring-1 focus:ring-[#FF27F0] transition-all resize-none font-['Cairo'] leading-relaxed placeholder:text-white/20"
                 />
-                <p className="text-left text-white/30 text-[12px]">{bio.length}/300</p>
+                <p className=" text-white/30 text-[12px]">{bio.length}/300</p>
               </div>
 
               {/* Zone Info */}
               <div className="w-full mb-14">
-                <div className="flex items-center justify-end gap-3 mb-4">
-                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']">ساحة إنجازاتك</label>
+                <div className="flex items-center gap-3 mb-4">
+                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir='rtl'>ساحة إنجازاتك</label>
                   <span className="text-[28px]">🏆</span>
                 </div>
                 <div className="w-full rounded-2xl p-[1.5px] relative"

@@ -4,8 +4,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { arenaService } from '@/services/arenaService';
 import { authService } from '@/services/authService';
 import { supabase } from '../../../lib/supabase';
+import "../../globals.css";
 
 export default function ArenaDetailsPage() {
+
   const { arenaName } = useParams();
   const router = useRouter();
   const [messages, setMessages] = useState([]);
@@ -14,6 +16,7 @@ export default function ArenaDetailsPage() {
   const [arenaData,setArenaData]=useState(null);
   const decodedName = decodeURIComponent(arenaName);
   const [role,setRole]=useState(null);
+  
   
 
   // مصفوفة الألوان الخمسة اللي طلبتيها لمربعات الرسائل
@@ -180,11 +183,11 @@ export default function ArenaDetailsPage() {
 
     <div className="relative w-full max-w-[800px] h-[240px] mx-auto mt-2 mb-0 overflow-hidden flex justify-center items-center">
   {getTopWords(messages).map(([word, count], i) => {
-    const neonColors = ['#B37FEB', '#29FF64', '#FF27F0', '#FF891B', '#00CCFF', '#FFD700'];
     
-    // مواقع مركزية ومضغوطة لتقليل المسافات البينية
+    const neonColors = ['#B37FEB', '#29FF64', '#FF27F0', '#FF891B', '#00CCFF', '#FFD700'];
+
     const compactPositions = [
-      { top: '40%', left: '42%' }, // الكلمة المركزية
+      { top: '40%', left: '42%' },
       { top: '28%', left: '32%' },
       { top: '50%', left: '25%' },
       { top: '35%', left: '55%' },
@@ -192,11 +195,12 @@ export default function ArenaDetailsPage() {
       { top: '22%', left: '45%' },
       { top: '65%', left: '35%' },
       { top: '45%', left: '60%' },
-      { top: '18%', left: '35%' },
-      { top: '65%', left: '50%' },
     ];
 
     const pos = compactPositions[i % compactPositions.length];
+
+    // ⭐ أهم كلمة
+    const isTop = i === 0;
 
     return (
       <span 
@@ -205,11 +209,23 @@ export default function ArenaDetailsPage() {
         style={{ 
           top: pos.top,
           left: pos.left,
-          fontSize: `${Math.min(72, 12 + count *11)}px`, // تكبير الأحجام قليلاً لتعويض التباعد
+
+          // 🔥 حجم أكبر للكلمة الأولى
+          fontSize: `${isTop ? 90 : Math.min(72, 12 + count * 11)}px`,
+
           color: neonColors[i % neonColors.length],
-          //textShadow: `0 0 15px ${neonColors[i % neonColors.length]}`,
-          // التعديل الأساسي هنا: تم حذف الـ rotate لتصبح الكلمات مستقيمة
-          transform: `translate(-50%, -50%)`, 
+
+          // 🔥 Glow للكلمة الأولى
+          textShadow: isTop 
+            ? `0 0 25px ${neonColors[i % neonColors.length]}`
+            : `0 0 10px ${neonColors[i % neonColors.length]}`,
+
+          // 🔥 الحركة (Pulse + Floating)
+          animation: `
+            float ${3 + i}s ease-in-out infinite,
+            pulse ${2 + i * 0.3}s ease-in-out infinite
+          `,
+
           zIndex: 10 - i,
         }}
       >
@@ -263,6 +279,12 @@ export default function ArenaDetailsPage() {
       {/* 3. مربع البحث/الإرسال (المواصفات: 109px height) */}
       {role==='participant'&&(
       <footer className="fixed bottom-10 z-50">
+        <form 
+    onSubmit={(e) => {
+      e.preventDefault();
+      handleSend();
+    }}
+  >
         <div 
           className="flex items-center w-[1100px] h-[100px] px-8 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
           style={{
@@ -270,7 +292,7 @@ export default function ArenaDetailsPage() {
             backgroundBlendMode: 'soft-light, normal'
           }}
         >
-          <button onClick={handleSend} className="p-4 hover:scale-110 transition-transform text-[#29FF64] font-bold font-['Cairo']">
+          <button type='submit' className="p-4 hover:scale-110 transition-transform text-[#29FF64] font-bold font-['Cairo']">
              ارسال
           </button>
           <input 
@@ -282,6 +304,7 @@ export default function ArenaDetailsPage() {
             outline-none placeholder:text-[#9D9D9D]"
           />
         </div>
+        </form>
       </footer>
       )}
     </main>
