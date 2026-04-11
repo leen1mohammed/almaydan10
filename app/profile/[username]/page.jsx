@@ -140,7 +140,11 @@ export default function VisitorProfilePage() {
           <div className="w-full mb-10">
             <div className="flex items-center justify-end gap-3 mb-4">
               <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">للتواصل</h3>
-              <span className="text-[28px]">📞</span>
+                <span className="text-white font-['Cairo'] text-[18px] font-bold">
+                  {contactInfo
+                    ? contactInfo.replace(/^(phone:|email:)/, '')
+                    : "—"}
+                </span>
             </div>
 
             <div className="w-full rounded-2xl p-[1.5px]"
