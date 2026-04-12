@@ -1,7 +1,8 @@
 import { supabase } from "../lib/supabase";
+import{sendWelcomeEmail} from "../services/EmailService";
 
 export const handleGoogleUser = async (user) => {
-    console.log("دخلنا هاندل قوقل يوزر",user.email)
+    console.log ("دخلنا هاندل قوقل يوزر",user.email)
   // تحقق هل موجود
   const { data: member } = await supabase
     .from('Member')
@@ -11,6 +12,7 @@ export const handleGoogleUser = async (user) => {
 
   if (!member) {
     const userName = user.email.split('@')[0];
+
 
     // إنشاء المستخدم
     const { error: memberError } = await supabase
@@ -33,6 +35,11 @@ export const handleGoogleUser = async (user) => {
     await supabase.from('Participant').insert([
       { PuserName: userName, zoneinfo: "" },
     ]);
+
+    await sendWelcomeEmail(
+        user.user_metadata.full_name || "",
+        user.email
+    );
 
     return { isNew: true };
   }

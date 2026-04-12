@@ -1,0 +1,20 @@
+import { supabase } from '../lib/supabase';
+import emailjs from '@emailjs/browser';
+
+export const sendWelcomeEmail = async (name, email) => {
+  try {
+    await emailjs.send(
+      'service_yyb2tqv',
+      'template_iui2e1c',
+      {
+        name: name,
+        email: email,
+      },
+      'rvJy2rmECD1SeDcWS'
+    );
+
+    console.log("📧 تم إرسال الإيميل");
+  } catch (error) {
+    console.error("❌ فشل إرسال الإيميل", error);
+  }
+};

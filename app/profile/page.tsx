@@ -118,7 +118,7 @@ function AvatarModal({
 // ─────────────────────────────────────────────
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-2 w-full" dir='rtl'>
       <label className="text-[18px] font-[600] text-right text-white/80 font-['Cairo']">{label}</label>
       <div className="w-full h-[40px] bg-white/5 border-[1.5px] border-[#B37FEB]/40 rounded-md px-[12px] flex items-center justify-end text-sm text-white/50 font-['Cairo'] cursor-not-allowed select-none">
         {value || "—"}
@@ -130,7 +130,13 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 // ─────────────────────────────────────────────
 // Admin Card (shown on own profile when user is admin)
 // ─────────────────────────────────────────────
-function AdminCard({ contactInfo }: { contactInfo: string }) {
+function AdminCard({
+  contactInfo,
+  onChange,
+}: {
+  contactInfo: string;
+  onChange: (val: string) => void;
+}) {
   return (
     <div className="w-full mb-14">
       <div className="flex items-center justify-end gap-3 mb-4">
@@ -139,27 +145,36 @@ function AdminCard({ contactInfo }: { contactInfo: string }) {
         </label>
         <span className="text-[28px]">🛡️</span>
       </div>
-
       <div
         className="w-full rounded-2xl p-[1.5px] relative"
         style={{ background: "linear-gradient(135deg, #29FF64, #B37FEB, #FF27F0)" }}
       >
         <div
-          className="w-full rounded-2xl px-6 py-8 flex flex-col items-end gap-4"
+          className="w-full rounded-2xl px-6 py-8 flex flex-col items-end gap-5"
           style={{
             background: "linear-gradient(145deg, #0D0A2E, #0a1628)",
             boxShadow: "inset 0 0 40px rgba(41,255,100,0.07)",
           }}
         >
-        
           <p className="text-right text-white/40 text-[13px] font-['Cairo']">
-            أنت مسؤول في الميدان — للتواصل معك يمكن استخدام معلومات الاتصال أدناه
+            أنت مسؤول في الميدان — رقم جوالك سيظهر للزوار في صفحتك
           </p>
-
-          {/* Contact info display */}
-          <div className="flex items-center gap-3 bg-white/5 border border-[#29FF64]/30 rounded-xl px-5 py-3 w-full justify-end">
-            <span className="text-white font-['Cairo'] text-[16px] font-bold">{contactInfo || "—"}</span>
-            <span className="text-[#29FF64] text-[20px]">📞</span>
+          <div className="w-full flex flex-col gap-2">
+            <label className="text-right text-white/70 text-[13px] font-['Cairo'] font-bold">
+              📞 رقم الجوال
+            </label>
+            <input
+              type="tel"
+              dir="ltr"
+              value={contactInfo}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^\d+\s]/g, '');
+                onChange(val);
+              }}
+              maxLength={15}
+              placeholder="+966 5X XXX XXXX"
+              className="w-full bg-white/5 border border-[#29FF64]/30 rounded-xl px-4 py-3 text-left text-white font-['Cairo'] text-[15px] outline-none focus:border-[#29FF64] focus:ring-1 focus:ring-[#29FF64] transition-all placeholder:text-white/20"
+            />
           </div>
         </div>
       </div>
@@ -258,30 +273,40 @@ export default function ProfilePage() {
       router.replace("/profile");
     }
   };
-
-  const handleSave = async () => {
+    
+  // Admin only saves profilePic, regular user saves bio + zoneinfo + profilePic
+   const handleSave = async () => {
     if (!username) return;
-    setIsSaving(true);
-    setSaveMsg(null);
 
-    // Admin only saves profilePic, regular user saves bio + zoneinfo + profilePic
     if (isAdmin) {
-      const { error } = await supabase
-        .from("Profile")
-        .update({ profilePic })
-        .eq("pruserName", username);
-      setSaveMsg(error ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
-    } else {
-      const [{ error: profileErr }, { error: participantErr }] = await Promise.all([
-        supabase.from("Profile").update({ bio, profilePic }).eq("pruserName", username),
-        supabase.from("Participant").update({ zoneinfo }).eq("PuserName", username),
-      ]);
-      setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
-    }
+      const phoneRegex = /^(05\d{8}|(\+966)5\d{8})$/;
+      if (contactInfo && !phoneRegex.test(contactInfo.replace(/\s/g, ''))) {
+        setSaveMsg("رقم الجوال غير صحيح ❌");
+        setTimeout(() => setSaveMsg(null), 3000);
+        return;
+      }
+  }
 
-    setTimeout(() => setSaveMsg(null), 3000);
-    setIsSaving(false);
-  };
+  setIsSaving(true);
+  setSaveMsg(null);
+
+  if (isAdmin) {
+    const [{ error: profileErr }, { error: adminErr }] = await Promise.all([
+      supabase.from("Profile").update({ profilePic }).eq("pruserName", username),
+      supabase.from("Admin").update({ contactInfo }).eq("AuserName", username),
+    ]);
+    setSaveMsg(profileErr || adminErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+  } else {
+    const [{ error: profileErr }, { error: participantErr }] = await Promise.all([
+      supabase.from("Profile").update({ bio, profilePic }).eq("pruserName", username),
+      supabase.from("Participant").update({ zoneinfo }).eq("PuserName", username),
+    ]);
+    setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+  }
+
+  setTimeout(() => setSaveMsg(null), 3000);
+  setIsSaving(false);
+};
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -371,8 +396,8 @@ export default function ProfilePage() {
 
           {/* ✅ ADMIN: show admin card only */}
           {isAdmin ? (
-            <AdminCard contactInfo={contactInfo} />
-          ) : (
+            <AdminCard contactInfo={contactInfo} onChange={setContactInfo} />
+                    ) : (
             <>
               {/* عنك */}
               <div className="w-full flex flex-col gap-3 mb-12">
@@ -388,13 +413,13 @@ export default function ProfilePage() {
                   placeholder="مثال: أنا لاعب فورتنايت منذ 2019، فريقي المفضل Falcons، هدفي الوصول للمحترفين..."
                   className="w-full bg-transparent border-[1.5px] border-[#B37FEB] rounded-xl px-[14px] py-[12px] text-right text-sm text-white outline-none focus:border-[#FF27F0] focus:ring-1 focus:ring-[#FF27F0] transition-all resize-none font-['Cairo'] leading-relaxed placeholder:text-white/20"
                 />
-                <p className="text-left text-white/30 text-[12px]">{bio.length}/300</p>
+                <p className=" text-white/30 text-[12px]">{bio.length}/300</p>
               </div>
 
               {/* Zone Info */}
               <div className="w-full mb-14">
-                <div className="flex items-center justify-end gap-3 mb-4">
-                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']">ساحة إنجازاتك</label>
+                <div className="flex items-center gap-3 mb-4">
+                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir='rtl'>ساحة إنجازاتك</label>
                   <span className="text-[28px]">🏆</span>
                 </div>
                 <div className="w-full rounded-2xl p-[1.5px] relative"

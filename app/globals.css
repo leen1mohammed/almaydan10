@@ -34,3 +34,21 @@ body {
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+
+@keyframes float {
+  0% { transform: translate(-50%, -50%) translateY(0px); }
+  50% { transform: translate(-50%, -50%) translateY(-6px); }
+  100% { transform: translate(-50%, -50%) translateY(0px); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1) translate(-50%, -50%); }
+  50% { transform: scale(1.08) translate(-50%, -50%); }
+  100% { transform: scale(1) translate(-50%, -50%); }
+}
+
+@keyframes flash {
+  0% { text-shadow: 0 0 0px transparent; }
+  50% { text-shadow: 0 0 20px white; }
+  100% { text-shadow: 0 0 0px transparent; }
+}
