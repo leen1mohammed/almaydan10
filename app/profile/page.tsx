@@ -145,7 +145,6 @@ function AdminCard({
         </label>
         <span className="text-[28px]">🛡️</span>
       </div>
-
       <div
         className="w-full rounded-2xl p-[1.5px] relative"
         style={{ background: "linear-gradient(135deg, #29FF64, #B37FEB, #FF27F0)" }}
@@ -160,7 +159,6 @@ function AdminCard({
           <p className="text-right text-white/40 text-[13px] font-['Cairo']">
             أنت مسؤول في الميدان — رقم جوالك سيظهر للزوار في صفحتك
           </p>
-
           <div className="w-full flex flex-col gap-2">
             <label className="text-right text-white/70 text-[13px] font-['Cairo'] font-bold">
               📞 رقم الجوال
@@ -169,7 +167,11 @@ function AdminCard({
               type="tel"
               dir="ltr"
               value={contactInfo}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^\d+\s]/g, '');
+                onChange(val);
+              }}
+              maxLength={15}
               placeholder="+966 5X XXX XXXX"
               className="w-full bg-white/5 border border-[#29FF64]/30 rounded-xl px-4 py-3 text-left text-white font-['Cairo'] text-[15px] outline-none focus:border-[#29FF64] focus:ring-1 focus:ring-[#29FF64] transition-all placeholder:text-white/20"
             />
@@ -275,11 +277,20 @@ export default function ProfilePage() {
   // Admin only saves profilePic, regular user saves bio + zoneinfo + profilePic
    const handleSave = async () => {
     if (!username) return;
-    setIsSaving(true);
-    setSaveMsg(null);
+
+    if (isAdmin) {
+      const phoneRegex = /^(05\d{8}|(\+966)5\d{8})$/;
+      if (contactInfo && !phoneRegex.test(contactInfo.replace(/\s/g, ''))) {
+        setSaveMsg("رقم الجوال غير صحيح ❌");
+        setTimeout(() => setSaveMsg(null), 3000);
+        return;
+      }
+  }
+
+  setIsSaving(true);
+  setSaveMsg(null);
 
   if (isAdmin) {
-    // Save profilePic AND contactInfo
     const [{ error: profileErr }, { error: adminErr }] = await Promise.all([
       supabase.from("Profile").update({ profilePic }).eq("pruserName", username),
       supabase.from("Admin").update({ contactInfo }).eq("AuserName", username),
