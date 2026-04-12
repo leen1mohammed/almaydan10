@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * الملف: app/camp/[id]/page.tsx
- * الدور: عرض المعسكر + الأعضاء + شات المعسكر (Realtime) + Reply (اقتباس)
- * مضاف:
- * - تحسين واجهة الرسائل
- * - قائمة أعضاء قابلة للفتح/الإغلاق
- * - المالك يقدر يضيف مشاركين بعد إنشاء المعسكر
- * - المشاركون (غير المالك) يقدرون يغادرون المعسكر
- */
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -84,6 +74,11 @@ export default function CampPage() {
   // مغادرة المعسكر
   const [isLeavingCamp, setIsLeavingCamp] = useState(false);
 
+  // تعديل وصف المعسكر
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -96,6 +91,10 @@ export default function CampPage() {
   const isOwner = useMemo(() => {
     return Boolean(camp?.creatorUser && currentUserName && camp.creatorUser === currentUserName);
   }, [camp, currentUserName]);
+
+  useEffect(() => {
+    setEditedDescription(camp?.description || "");
+  }, [camp?.description]);
 
   async function getUserNameOrRedirect() {
     dbg("getUserNameOrRedirect()");
@@ -162,6 +161,44 @@ export default function CampPage() {
     setMembers(((membersData as any) || []) as CampParticipantRow[]);
   }
 
+  async function handleSaveDescription() {
+    if (!campId || !isOwner) return;
+
+    setIsSavingDescription(true);
+    dbg("handleSaveDescription() start", { campId, editedDescription });
+
+    try {
+      const newDescription = editedDescription.trim();
+
+      const { error } = await sb(
+        "Camp: update description",
+        db.from("Camp").update({ description: newDescription }).eq("id", campId)
+      );
+
+      if (error) {
+        alert("تعذر حفظ وصف المعسكر.");
+        return;
+      }
+
+      setCamp((prev) =>
+        prev
+          ? {
+              ...prev,
+              description: newDescription,
+            }
+          : prev
+      );
+
+      setIsEditingDescription(false);
+      alert("تم تحديث وصف المعسكر بنجاح.");
+    } catch (e) {
+      dbgError("handleSaveDescription() unexpected error", e);
+      alert("حدثت مشكلة أثناء حفظ الوصف.");
+    } finally {
+      setIsSavingDescription(false);
+    }
+  }
+
   useEffect(() => {
     if (!campId) return;
 
@@ -177,11 +214,9 @@ export default function CampPage() {
         if (!alive) return;
         setCurrentUserName(userName);
 
-        // Gate access
         const allowed = await assertMembershipOrRedirect(campId, userName);
         if (!allowed) return;
 
-        // Camp
         const { data: campData, error: campError } = await sb(
           "Camp: fetch camp row",
           db.from("Camp").select("id,name,description,pic,creatorUser").eq("id", campId).single()
@@ -193,13 +228,11 @@ export default function CampPage() {
           return;
         }
 
-        // Members
         const { data: membersData } = await sb(
           "CampParticipants: fetch members",
           db.from("CampParticipants").select("campId,pUserName").eq("campId", campId)
         );
 
-        // Messages
         const { data: messagesData } = await sb(
           "Messages: fetch messages",
           db
@@ -295,7 +328,6 @@ export default function CampPage() {
       const senderUser = await getUserNameOrRedirect();
       if (!senderUser) return;
 
-      // Re-check membership
       const allowed = await assertMembershipOrRedirect(campId, senderUser);
       if (!allowed) return;
 
@@ -345,13 +377,11 @@ export default function CampPage() {
     dbg("handleAddParticipant() start", { campId, targetUserName, currentUserName });
 
     try {
-      // لا يضيف نفسه
       if (targetUserName.toLowerCase() === currentUserName.toLowerCase()) {
         alert("أنتِ موجودة أصلًا داخل المعسكر.");
         return;
       }
 
-      // لازم يكون Participant
       const { data: participantRow, error: participantError } = await sb(
         "Participant: validate target user exists",
         db.from("Participant").select("PuserName").eq("PuserName", targetUserName).maybeSingle()
@@ -367,7 +397,6 @@ export default function CampPage() {
         return;
       }
 
-      // هل هو داخل هذا المعسكر أصلًا؟
       const { data: existingInThisCamp, error: existingInThisCampError } = await sb(
         "CampParticipants: check target already in this camp",
         db
@@ -388,7 +417,6 @@ export default function CampPage() {
         return;
       }
 
-      // هل عنده معسكر آخر؟
       const { data: existingMembershipRows, error: existingMembershipError } = await sb(
         "CampParticipants: check target user has another camp",
         db.from("CampParticipants").select("campId,pUserName").eq("pUserName", targetUserName)
@@ -436,28 +464,97 @@ export default function CampPage() {
   async function handleLeaveCamp() {
     if (!campId || !currentUserName) return;
 
-    if (isOwner) {
-      alert("لا يمكن لمالك المعسكر مغادرة المعسكر حاليًا.");
-      return;
-    }
-
-    const confirmed = window.confirm("هل أنت متأكد من مغادرة المعسكر؟");
+    const confirmed = window.confirm(
+      isOwner
+        ? "هل أنت متأكد من مغادرة المعسكر؟ إذا بقي أعضاء فسيتم نقل الملكية، وإذا كنت آخر عضو فسيتم حذف المعسكر بالكامل."
+        : "هل أنت متأكد من مغادرة المعسكر؟"
+    );
     if (!confirmed) return;
 
     setIsLeavingCamp(true);
-    dbg("handleLeaveCamp() start", { campId, currentUserName });
+    dbg("handleLeaveCamp() start", { campId, currentUserName, isOwner });
 
     try {
-      const { error } = await sb(
+      const { error: deleteMembershipError } = await sb(
         "CampParticipants: delete current user membership",
         db.from("CampParticipants").delete().eq("campId", campId).eq("pUserName", currentUserName)
       );
 
-      if (error) {
+      if (deleteMembershipError) {
         alert("تعذر مغادرة المعسكر.");
         return;
       }
 
+      const { data: remainingMembers, error: remainingMembersError } = await sb(
+        "CampParticipants: fetch remaining members after leave",
+        db.from("CampParticipants").select("campId,pUserName").eq("campId", campId)
+      );
+
+      if (remainingMembersError) {
+        alert("تمت المغادرة لكن تعذر التحقق من حالة المعسكر.");
+        router.push("/camp");
+        return;
+      }
+
+      const remaining = ((remainingMembers as any) || []) as CampParticipantRow[];
+
+      if (remaining.length === 0) {
+        const { error: deleteMessagesError } = await sb(
+          "Messages: delete all camp messages",
+          db.from("Messages").delete().eq("campId", campId)
+        );
+
+        if (deleteMessagesError) {
+          alert("تمت المغادرة لكن تعذر حذف رسائل المعسكر.");
+          router.push("/camp");
+          return;
+        }
+
+        const { error: cleanupParticipantsError } = await sb(
+          "CampParticipants: cleanup remaining rows",
+          db.from("CampParticipants").delete().eq("campId", campId)
+        );
+
+        if (cleanupParticipantsError) {
+          alert("تمت المغادرة لكن تعذر تنظيف أعضاء المعسكر.");
+          router.push("/camp");
+          return;
+        }
+
+        const { error: deleteCampError } = await sb(
+          "Camp: delete empty camp",
+          db.from("Camp").delete().eq("id", campId)
+        );
+
+        if (deleteCampError) {
+          alert("تمت المغادرة لكن تعذر حذف المعسكر الفارغ.");
+          router.push("/camp");
+          return;
+        }
+
+        alert("تمت مغادرة المعسكر، وبما أنه لم يبق أي عضو فقد تم حذف المعسكر.");
+        router.push("/camp");
+        return;
+      }
+
+      if (isOwner) {
+        const newOwner = remaining[0]?.pUserName ?? null;
+
+        if (newOwner) {
+          const { error: updateOwnerError } = await sb(
+            "Camp: transfer ownership to remaining member",
+            db.from("Camp").update({ creatorUser: newOwner }).eq("id", campId)
+          );
+
+          if (updateOwnerError) {
+            alert("تمت المغادرة لكن تعذر نقل ملكية المعسكر.");
+            router.push("/camp");
+            return;
+          }
+        }
+      }
+
+      alert("تمت مغادرة المعسكر بنجاح.");
       router.push("/camp");
     } catch (e) {
       dbgError("handleLeaveCamp() unexpected error", e);
@@ -476,26 +573,122 @@ export default function CampPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0614] text-white px-4 py-6 md:px-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-[96vw] flex-col gap-4">
         {/* Header */}
-        <div className="rounded-2xl border border-purple-500/40 bg-white/5 p-4 md:p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{camp?.name}</h1>
-              <p className="mt-2 text-sm md:text-base text-gray-300">
-                {camp?.description || "لا يوجد وصف لهذا المعسكر حاليًا."}
-              </p>
-            </div>
+        <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-[#081126] px-4 py-6 md:px-8 md:py-8">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-8 left-10 h-36 w-36 rounded-full bg-fuchsia-500/10 blur-3xl" />
+            <div className="absolute bottom-0 right-10 h-40 w-40 rounded-full bg-green-400/10 blur-3xl" />
+          </div>
 
-            {!isOwner && currentUserName && (
+          <div className="relative z-10 mb-6 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="text-sm text-green-300 transition hover:text-green-200"
+            >
+              السابق
+            </button>
+
+            {currentUserName && (
               <button
                 type="button"
                 onClick={handleLeaveCamp}
                 disabled={isLeavingCamp}
-                className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/20 disabled:opacity-60"
+                className="rounded-2xl border border-purple-400/50 bg-[#22103f] px-5 py-2 text-sm text-white shadow-[0_0_20px_rgba(168,85,247,0.18)] transition hover:bg-[#2b1450] disabled:opacity-60"
               >
-                {isLeavingCamp ? "جاري المغادرة..." : "مغادرة المعسكر"}
+                {isLeavingCamp ? "جاري المغادرة..." : "مغادرة"}
               </button>
+            )}
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center text-center">
+            {camp?.pic ? (
+              <img
+                src={camp.pic}
+                alt={camp.name}
+                className="mb-4 h-24 w-24 rounded-full border border-purple-400/50 object-cover shadow-[0_0_25px_rgba(168,85,247,0.22)] md:h-28 md:w-28"
+              />
+            ) : (
+              <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-purple-400/40 bg-[#140d25] text-2xl font-bold text-purple-200 shadow-[0_0_25px_rgba(168,85,247,0.18)] md:h-28 md:w-28">
+                {camp?.name?.charAt(0) || "م"}
+              </div>
+            )}
+
+            <h1 className="text-2xl font-bold text-white md:text-4xl">
+              {camp?.name}
+            </h1>
+
+            {!!camp?.description && !isEditingDescription && (
+              <div className="mt-3 flex items-center gap-2">
+                <p className="max-w-2xl text-sm text-gray-300 md:text-base">
+                  {camp.description}
+                </p>
+
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDescription(true)}
+                    className="shrink-0 transition hover:opacity-80"
+                    title="تعديل وصف المعسكر"
+                  >
+                    <img
+                      src="/images/icons/edit-icon3.png"
+                      alt="edit"
+                      className="h-5 w-5 object-contain"
+                    />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!camp?.description && isOwner && !isEditingDescription && (
+              <button
+                type="button"
+                onClick={() => setIsEditingDescription(true)}
+                className="mt-3 flex items-center gap-2 rounded-2xl border border-purple-400/40 bg-white/5 px-4 py-2 text-sm text-purple-100 transition hover:bg-white/10"
+              >
+                <img
+                  src="/images/icons/edit-icon3.png"
+                  alt="edit"
+                  className="h-4 w-4 object-contain"
+                />
+                أضف وصفًا للمعسكر
+              </button>
+            )}
+
+            {isEditingDescription && isOwner && (
+              <div className="mt-4 w-full max-w-2xl">
+                <textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  rows={4}
+                  placeholder="اكتب وصف المعسكر هنا..."
+                  className="w-full resize-none rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-sm text-white outline-none placeholder:text-gray-400"
+                />
+
+                <div className="mt-3 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDescription}
+                    disabled={isSavingDescription}
+                    className="rounded-2xl bg-purple-600 px-4 py-2 text-sm text-white transition hover:bg-purple-500 disabled:opacity-60"
+                  >
+                    {isSavingDescription ? "جاري الحفظ..." : "حفظ"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditedDescription(camp?.description || "");
+                      setIsEditingDescription(false);
+                    }}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition hover:bg-white/10"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -576,7 +769,7 @@ export default function CampPage() {
           <div className="mb-4 h-[430px] overflow-y-auto rounded-2xl bg-black/15 p-3 md:p-4">
             {messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                لا توجد رسائل بعد. 
+                لا توجد رسائل بعد.
               </div>
             ) : (
               <div className="space-y-3">
@@ -592,14 +785,14 @@ export default function CampPage() {
                       <div
                         className={`max-w-[82%] sm:max-w-[75%] md:max-w-[68%] rounded-2xl px-4 py-3 shadow-sm ${
                           isMine
-                            ? "bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white rounded-br-md"
+                            ? "bg-[#B794F6] text-white rounded-br-md"
                             : "bg-[#1b1330] text-white border border-white/10 rounded-bl-md"
                         }`}
                         style={{ width: "fit-content", minWidth: "120px" }}
                       >
                         <div
                           className={`mb-2 text-[11px] ${
-                            isMine ? "text-white/80" : "text-gray-300"
+                            isMine ? "text-white/85" : "text-gray-300"
                           }`}
                         >
                           {msg.senderUser} • {new Date(msg.createdAt).toLocaleString()}
@@ -630,7 +823,7 @@ export default function CampPage() {
                             onClick={() => setReplyTo(msg)}
                             className={`text-[11px] transition ${
                               isMine
-                                ? "text-white/85 hover:text-white"
+                                ? "text-white/90 hover:text-white"
                                 : "text-purple-200 hover:text-purple-100"
                             }`}
                           >
@@ -648,7 +841,7 @@ export default function CampPage() {
 
           {replyTo && (
             <div className="mb-3 rounded-2xl border border-purple-500/40 bg-purple-950/40 px-4 py-3">
-              <div className="mb-1 text-xs text-gray-200">أنتِ تردين على: {replyTo.senderUser}</div>
+              <div className="mb-1 text-xs text-gray-200">أنت ترد على: {replyTo.senderUser}</div>
               <div className="line-clamp-2 text-sm text-gray-100">{replyTo.body}</div>
               <button
                 type="button"
