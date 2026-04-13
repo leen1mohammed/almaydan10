@@ -11,9 +11,8 @@ export const handleGoogleUser = async (user) => {
     .maybeSingle();
 
   if (!member) {
+    
     const userName = user.email.split('@')[0];
-
-
     // إنشاء المستخدم
     const { error: memberError } = await supabase
     .from('Member')

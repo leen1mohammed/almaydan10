@@ -65,9 +65,14 @@ export const arenaService = {
 
   // 3. جلب محتويات الساحة (المنشورات)
   getArenaContent: async (arenaName) => {
+    try{
     const { data, error } = await supabase
       .from('ArenaItem')
-      .select(`*, Profile:PUserName(profilePic)`)
+      .select(`*, Profile:PUserName(profilePic), Item_Reactions (
+          item_id,
+          reaction,
+          PUserName
+        )`)
       .eq('ArenaName', arenaName)
       .order('created_at', { ascending: false });
     
@@ -75,8 +80,71 @@ export const arenaService = {
         console.error("خطا في جلب الرسائل",error.message);
         return [];
     }
-    return data;
-  },
+    return  data.map(msg =>{
+      const rawReactions= msg.Item_Reactions || [];
+      const reactionsArray=Array.isArray(rawReactions)?rawReactions:[]
+      return {
+        ...msg,
+        // تنفيذ الـ reduce على المصفوفة المضمونة
+        reactions: reactionsArray.reduce((acc, curr) => {
+          if (!acc[curr.reaction]) acc[curr.reaction] = [];
+          acc[curr.reaction].push(curr);
+          return acc;
+        }, {})
+      };
+    });
+  } catch (error) {
+    console.error("خطأ في جلب محتوى الساحة:", error);
+    return [];
+}
+},
+
+  
+  toggleReaction: async (itemId, reaction, userName, arenaName) => {
+  console.log("جاري البدء في التفاعل لـ:", { itemId, reaction, userName });
+
+  // 1. البحث عن السطر
+  const { data: existing, error: fetchError } = await supabase
+    .from('Item_Reactions')
+    .select('*') // خليه يجيب كل شي الحين عشان نتأكد
+    .eq('item_id', itemId)
+    .eq('reaction', reaction)
+    .eq('PUserName', userName)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("خطأ أثناء البحث:", fetchError.message);
+    return;
+  }
+
+  console.log("نتيجة البحث عن تفاعل سابق:", existing);
+
+  if (existing) {
+    console.log("وجدنا تفاعل سابق، جاري الحذف للـ ID:", existing.id);
+    const { error: deleteError } = await supabase
+      .from('Item_Reactions')
+      .delete()
+      .eq('id', existing.id);
+
+
+    if (deleteError) console.error("خطأ في الحذف:", deleteError.message);
+    else console.log("تم الحذف بنجاح ✅");
+    return { action: 'deleted' };
+  } else {
+    console.log("لم نجد تفاعل، جاري الإضافة...");
+    const { data: insertedData, error: insertError } = await supabase
+      .from('Item_Reactions')
+      .insert({
+        item_id: itemId,
+        reaction: reaction,
+        PUserName: userName,
+        Arena_Name: arenaName
+      })
+    if (insertError) console.error("خطأ في الإضافة:", insertError.message);
+    else console.log("تمت الإضافة بنجاح ✅ البيانات المضافة:", insertedData);
+    return { action: 'inserted' };
+  }
+},
 
   // 4. التحقق من حالة الانضمام وجلب النقاط
   getMembershipDetails: async (userName, arenaName) => {
