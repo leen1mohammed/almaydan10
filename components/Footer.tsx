@@ -4,12 +4,12 @@ export default function Footer() {
 
   /* روابط الصفحات */
   const links = [
-    { name: "اسأل حميدان", href: "#" },
-    { name: "حول", href: "#" },
-    { name: "الساحة", href: "#" },
-    { name: "المعسكر", href: "#" },
-    { name: "المباريات", href: "#" },
-    { name: "الآن", href: "#" },
+    { name: "اسأل حميدان", href: "/homidan" },
+    { name: "حول", href: "/about" },
+    { name: "الساحة", href: "/arena" },
+    { name: "المعسكر", href: "/camp" },
+    { name: "المباريات", href: "/matches" },
+    { name: "الآن", href: "/live" },
   ];
 
 
@@ -18,27 +18,27 @@ export default function Footer() {
     {
       icon: "/images/icons/linkedin.svg",
       alt: "LinkedIn",
-      href: "#",
+      href: "https://www.linkedin.com/company/113112978",
     },
     {
       icon: "/images/icons/facebook.svg",
       alt: "Facebook",
-      href: "#",
+      href: "https://www.facebook.com/profile.php?id=61572160743216",
     },
     {
       icon: "/images/icons/instagram.svg",
       alt: "Instagram",
-      href: "#",
+      href: "https://www.instagram.com/almaydanapp",
     },
     {
       icon: "/images/icons/xApp.svg",
       alt: "X",
-      href: "#",
+      href: "https://x.com/mydanapp",
     },
     {
       icon: "/images/icons/youtube.svg",
       alt: "YouTube",
-      href: "#",
+      href: "https://www.youtube.com/channel/UCvIB6oOuSEdYwOc94MJV9-Q",
     },
   ];
 

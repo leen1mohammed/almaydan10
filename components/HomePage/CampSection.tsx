@@ -267,6 +267,7 @@ const Light3 = styled(LightBase)`
 ================================ */
 
 export default function CampSection() {
+  const router=useRouter();
   return (
     <Wrapper>
 
@@ -294,7 +295,7 @@ export default function CampSection() {
 
           <Text3>حيث تصنع التحالفات ..</Text3>
 
-          <Button >
+          <Button onClick={() => router.push("/camp")}>
             <span>الـمـعـسـكـر</span>
           </Button>
 
