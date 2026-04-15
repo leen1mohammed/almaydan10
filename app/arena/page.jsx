@@ -70,7 +70,7 @@ useEffect(() => {
 
   const handleRemoveArena = (arenaName) => {
   setArenas(prev => prev.filter(a => a.name !== arenaName));
-};
+  };
 
   const handleCreateSubmit = async () => {
 
@@ -322,31 +322,36 @@ useEffect(() => {
           <label className="text-white font-['Cairo'] block mb-2 mr-2">وصف الساحة </label>
           <input 
             type="text" 
-            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none transition-all"
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white
+             focus:border-[#B37FEB] outline-none transition-all"
             placeholder="اكتب وصف الساحة هنا..."
             onChange={(e) => setNewArena({...newArena, description: e.target.value})}
           />
         </div>
 
         <div>
-          <label className="text-white font-['Cairo'] block mb-2 mr-2">  صورةالخلفية </label>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">  صورة الساحة </label>
           <input 
             type="file" 
             accept='image/*'
-            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full 
-            file:border-0 file:text-sm file:bg-[#29FF64] file:text-[#020C1F] cursor-pointer"
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white
+            focus:border-[#B37FEB] outline-none transition-all
+            file:mr-4 file:py-1 file:px-2 file:rounded-full 
+            file:border-0 file:text-sm file:bg-[#29FF64] file:text-black cursor-pointer"
             placeholder=" الصورة هنا..."
             onChange={(e) => setNewArena({...newArena, imageFile: e.target.files[0]})}
           />
         </div>
 
         <div>
-          <label className="text-white font-['Cairo'] block mb-2 mr-2">اللوقو</label>
+          <label className="text-white font-['Cairo'] block mb-2 mr-2">شعار الساحة </label>
           <input 
             type="file" 
             accept='image/*'
-            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full 
-            file:border-0 file:text-sm file:bg-[#29FF64] file:text-[#020C1F] cursor-pointer"
+            className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white
+            focus:border-[#B37FEB] outline-none transition-all
+            file:mr-4 file:py-1 file:px-2 file:rounded-full 
+            file:border-0 file:text-sm file:bg-[#29FF64] file:text-black cursor-pointer"
             placeholder=" اللوقو هنا..."
             onChange={(e) => setNewArena({...newArena, logoFile: e.target.files[0] })}
           />

@@ -181,7 +181,6 @@ const triggerFloatingEmoji = (emoji) => {
         setMessages((current) => [newMessageWithProfile, ...current]);
       }
     )
-    
 
   // 3. استقبال الإيموجي الطائر
   .on('broadcast', { event: 'emoji_burst' }, ({ payload }) => {
@@ -278,11 +277,35 @@ const triggerFloatingEmoji = (emoji) => {
       { top: '45%', left: '60%' },
     ];
 
-    const pos = compactPositions[i % compactPositions.length];
+const isTop = i === 0;
+let pos;
 
+if (isTop) {
+  pos = { top: '50%', left: '50%' };
+} else {
+  const perLayer = 4;
+  const layer = Math.floor(i / perLayer);
+  const indexInLayer = i % perLayer;
+
+  const angle = (indexInLayer / perLayer) * 2 * Math.PI;
+
+  // 🔥 نخليه أعرض أفقيًا
+  const baseRadius = 100;
+  const layerGap = 110;
+
+ const sizeFactor = Math.max(1, count / 5);
+
+const radiusX = (baseRadius + layer * layerGap) * sizeFactor + 4;
+const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
+  // 🔥 عشوائية خفيفة (تعطي شكل كلاود)
+  const randomOffset = (Math.random() - 0.5) * 30;
+
+  pos = {
+    top: `calc(50% + ${Math.sin(angle) * radiusY + randomOffset}px)`,
+    left: `calc(50% + ${Math.cos(angle) * radiusX + randomOffset}px)`
+  };
+}
     // ⭐ أهم كلمة
-    const isTop = i === 0;
-
     return (
       <span 
         key={i}
@@ -291,17 +314,16 @@ const triggerFloatingEmoji = (emoji) => {
           top: pos.top,
           left: pos.left,
 
-          // 🔥 حجم أكبر للكلمة الأولى
-          fontSize: `${isTop ? 90 : Math.min(72, 12 + count * 11)}px`,
+          // ⭐ الحل هنا
+          transform: 'translate(-50%, -50%)',
 
+          fontSize: `${isTop ? 80 : Math.min(72, 12 + count * 11)}px`,
           color: neonColors[i % neonColors.length],
 
-          // 🔥 Glow للكلمة الأولى
           textShadow: isTop 
             ? `0 0 25px ${neonColors[i % neonColors.length]}`
             : `0 0 10px ${neonColors[i % neonColors.length]}`,
 
-          // 🔥 الحركة (Pulse + Floating)
           animation: `
             float ${3 + i}s ease-in-out infinite,
             pulse ${2 + i * 0.3}s ease-in-out infinite
