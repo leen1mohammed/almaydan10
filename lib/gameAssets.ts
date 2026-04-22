@@ -93,4 +93,5 @@ export const GAME_ASSETS: Record<string, { title: string; header: string }> = {
     title: "ESPORT",
     header: "/games/default.png",
   },
+  
 };GAME_ASSETS["default"]

@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useParams } from "next/navigation";
-
+import { useParams, useSearchParams } from "next/navigation";
 
 type MatchStatus = "UPCOMING" | "LIVE" | "FINISHED";
 
@@ -66,7 +65,21 @@ function getReplayUrl(match: MatchType | null) {
   ].filter(Boolean) as string[];
 
   for (const url of urls) {
-    if (url.startsWith("http://") || url.startsWith("https://")) {
+    const lower = url.toLowerCase();
+
+    const isReplayUrl =
+      lower.includes("youtube.com/watch") ||
+      lower.includes("youtu.be/") ||
+      lower.includes("/videos/") ||
+      lower.includes("twitch.tv/videos/") ||
+      lower.includes("kick.com/video/") ||
+      lower.includes("kick.com/videos/") ||
+      lower.includes("clips.twitch.tv");
+
+    if (
+      isReplayUrl &&
+      (url.startsWith("http://") || url.startsWith("https://"))
+    ) {
       return url;
     }
   }
@@ -237,6 +250,7 @@ function TypingSummary({
 
 export default function WatchPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
 
   const [match, setMatch] = useState<MatchType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -250,6 +264,17 @@ export default function WatchPage() {
 
   const matchId = typeof params?.id === "string" ? params.id : "";
 
+  const initialMatchData = useMemo(() => {
+    const raw = searchParams.get("data");
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw) as MatchType;
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (!matchId) return;
 
@@ -260,6 +285,10 @@ export default function WatchPage() {
         setLoading(true);
         setPageError("");
 
+        if (initialMatchData && !cancelled) {
+          setMatch(initialMatchData);
+        }
+
         const res = await fetch(`/api/match/${matchId}`, {
           cache: "no-store",
         });
@@ -267,14 +296,46 @@ export default function WatchPage() {
         const data = await res.json().catch(() => null);
 
         if (!res.ok) {
-          throw new Error(data?.error || "تعذر تحميل المباراة");
+          if (!initialMatchData) {
+            throw new Error(data?.error || "تعذر تحميل المباراة");
+          }
+          return;
         }
 
-        if (!cancelled) {
-          setMatch(data?.match || null);
+        if (!cancelled && data?.match) {
+          const apiMatch = data.match as MatchType;
+
+          setMatch((prev) => {
+            if (!prev) return apiMatch;
+
+            return {
+              ...prev,
+              stream_url: apiMatch.stream_url || prev.stream_url,
+              streams_list:
+                apiMatch.streams_list?.length
+                  ? apiMatch.streams_list
+                  : prev.streams_list,
+              teams: [
+                {
+                  ...prev.teams[0],
+                  score:
+                    typeof apiMatch.teams?.[0]?.score === "number"
+                      ? apiMatch.teams[0].score
+                      : prev.teams[0].score,
+                },
+                {
+                  ...prev.teams[1],
+                  score:
+                    typeof apiMatch.teams?.[1]?.score === "number"
+                      ? apiMatch.teams[1].score
+                      : prev.teams[1].score,
+                },
+              ],
+            };
+          });
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !initialMatchData) {
           setPageError(
             err instanceof Error ? err.message : "حدث خطأ غير متوقع"
           );
@@ -291,7 +352,7 @@ export default function WatchPage() {
     return () => {
       cancelled = true;
     };
-  }, [matchId]);
+  }, [matchId, initialMatchData]);
 
   const replayUrl = useMemo(() => getReplayUrl(match), [match]);
   const replayLabel = useMemo(() => getReplayLabel(replayUrl), [replayUrl]);
@@ -349,8 +410,6 @@ export default function WatchPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#061125] text-white">
-      
-
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_75%,rgba(41,255,100,0.10),transparent_20%),radial-gradient(circle_at_88%_16%,rgba(179,127,235,0.12),transparent_22%),radial-gradient(circle_at_50%_100%,rgba(41,255,100,0.06),transparent_28%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.3)_1px,transparent_1px)] [background-size:34px_34px]" />
 
@@ -469,14 +528,23 @@ export default function WatchPage() {
                   : ""}
               </p>
 
-              {match.status === "FINISHED" && (
-                <div className="mt-4 inline-flex items-center gap-4 rounded-full border border-[#29FF64]/20 bg-[#0b1a24]/70 px-5 py-2 text-lg font-extrabold text-[#29FF64]">
-                  <span>{teamA?.score}</span>
-                  <span className="text-white/40">-</span>
-                  <span>{teamB?.score}</span>
+              {match.status === "FINISHED" &&
+(typeof teamA?.score === "number" && typeof teamB?.score === "number") ? (
+  teamA.score >= 0 && teamB.score >= 0 ? (
+    <div className="mt-4 inline-flex items-center gap-4 rounded-full border border-[#29FF64]/20 bg-[#0b1a24]/70 px-5 py-2 text-lg font-extrabold text-[#29FF64]">
+      <span>{teamA.score}</span>
+      <span className="text-white/40">-</span>
+      <span>{teamB.score}</span>
+    </div>
+  ) : (
+    <div className="mt-4 inline-flex items-center gap-4 rounded-full border border-white/10 bg-[#0b1a24]/70 px-5 py-2 text-sm font-semibold text-white/70">
+      النتيجة غير متاحة
+    </div>
+  )
+) : null}
                 </div>
-              )}
-            </div>
+             
+           
 
             <div className="my-8 h-px w-full bg-gradient-to-r from-transparent via-[#29FF64] to-transparent opacity-80" />
 
@@ -515,8 +583,6 @@ export default function WatchPage() {
                   {!!summary && !summaryLoading && (
                     <>
                       <TypingSummary text={summary} speed={8} />
-
-                      
 
                       {summaryNote && (
                         <p className="mt-2 text-center text-sm text-yellow-200/80">
