@@ -173,7 +173,7 @@ export default function ArenaDetailsPage() {
            <button 
             onClick={handleLeave}
            className="w-[120px] py-1 border border-[#FF27F0] text-white rounded-full font-bold text-sm font-['Cairo']"
-           >خروج
+           >مغادرة
            </button>
            )}
         </div>
