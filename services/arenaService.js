@@ -6,34 +6,73 @@ export const arenaService = {
   getAllArenas: async () => {
     const { data, error } = await supabase
       .from('Arena')
-      .select('*');
+      .select(`
+        *,
+        Joins (
+          PUserName,
+          Member (
+            Profile (profilePic)
+          )
+        )
+      `);
     if (error) throw error;
-    return data;
+    
+    // سنقوم بحساب العدد وتجهيز الأفاتارز لكل ساحة
+    return data.map(arena => ({
+      ...arena,
+      playerCount: arena.Joins?.length || 0,
+      playerAvatars: arena.Joins?.slice(0, 3).map(j => j.Member?.Profile?.profilePic)||[]
+    }));
   },
+
 
   // 2. جلب الساحات التي انضم لها المستخدم مع نقاطه
   getMyArenas: async (userName) => {
+    try{
     const { data, error } = await supabase
       .from('Joins')
       .select(`
         points,
         ArenaName,
-        Arena (*) 
+        Arena (*,
+        Joins (
+          PUserName,
+          Member (
+            Profile (profilePic)
+          )
+        )
+      )
       `)
       .eq('PUserName', userName); // تصحيح اسم الحقل لـ PUserName
     
     if (error) throw error;
-    return data.map(item => ({
-      ...item.Arena,
-      userPoints: item.points
-    }));
+
+    return data.map(item =>{
+    const arena=item.Arena;
+     return{
+      ...arena,
+      userPoints: item.points,
+      playerCount: arena.Joins?.length || 0,
+      playerAvatars: arena.Joins?.slice(0, 3).map(j => j.Member?.Profile?.profilePic)||[]
+     };
+    });
+  }catch(error){
+  console.error(" خطا في جلب ساحاتي ",error);
+  return[];
+      
+}
   },
 
   // 3. جلب محتويات الساحة (المنشورات)
   getArenaContent: async (arenaName) => {
+    try{
     const { data, error } = await supabase
       .from('ArenaItem')
-      .select(`*, Profile:PUserName(profilePic)`)
+      .select(`*, Profile:PUserName(profilePic), Item_Reactions (
+          item_id,
+          reaction,
+          PUserName
+        )`)
       .eq('ArenaName', arenaName)
       .order('created_at', { ascending: false });
     
@@ -41,8 +80,71 @@ export const arenaService = {
         console.error("خطا في جلب الرسائل",error.message);
         return [];
     }
-    return data;
-  },
+    return  data.map(msg =>{
+      const rawReactions= msg.Item_Reactions || [];
+      const reactionsArray=Array.isArray(rawReactions)?rawReactions:[]
+      return {
+        ...msg,
+        // تنفيذ الـ reduce على المصفوفة المضمونة
+        reactions: reactionsArray.reduce((acc, curr) => {
+          if (!acc[curr.reaction]) acc[curr.reaction] = [];
+          acc[curr.reaction].push(curr);
+          return acc;
+        }, {})
+      };
+    });
+  } catch (error) {
+    console.error("خطأ في جلب محتوى الساحة:", error);
+    return [];
+}
+},
+
+  
+  toggleReaction: async (itemId, reaction, userName, arenaName) => {
+  console.log("جاري البدء في التفاعل لـ:", { itemId, reaction, userName });
+
+  // 1. البحث عن السطر
+  const { data: existing, error: fetchError } = await supabase
+    .from('Item_Reactions')
+    .select('*') // خليه يجيب كل شي الحين عشان نتأكد
+    .eq('item_id', itemId)
+    .eq('reaction', reaction)
+    .eq('PUserName', userName)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("خطأ أثناء البحث:", fetchError.message);
+    return;
+  }
+
+  console.log("نتيجة البحث عن تفاعل سابق:", existing);
+
+  if (existing) {
+    console.log("وجدنا تفاعل سابق، جاري الحذف للـ ID:", existing.id);
+    const { error: deleteError } = await supabase
+      .from('Item_Reactions')
+      .delete()
+      .eq('id', existing.id);
+
+
+    if (deleteError) console.error("خطأ في الحذف:", deleteError.message);
+    else console.log("تم الحذف بنجاح ✅");
+    return { action: 'deleted' };
+  } else {
+    console.log("لم نجد تفاعل، جاري الإضافة...");
+    const { data: insertedData, error: insertError } = await supabase
+      .from('Item_Reactions')
+      .insert({
+        item_id: itemId,
+        reaction: reaction,
+        PUserName: userName,
+        Arena_Name: arenaName
+      })
+    if (insertError) console.error("خطأ في الإضافة:", insertError.message);
+    else console.log("تمت الإضافة بنجاح ✅ البيانات المضافة:", insertedData);
+    return { action: 'inserted' };
+  }
+},
 
   // 4. التحقق من حالة الانضمام وجلب النقاط
   getMembershipDetails: async (userName, arenaName) => {
@@ -155,6 +257,33 @@ deleteArena: async (arenaName) => {
     if (error) throw error;
     return { success: true };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+},
+
+uploadImage: async (file) => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`; // اسم عشوائي عشان ما تتكرر الأسماء
+    const filePath = `arenas/${fileName}`;
+
+    // 1. رفع الملف للـ Bucket (تأكدي إن عندك Bucket اسمه 'arena-assets')
+    const { error: uploadError } = await supabase.storage
+      .from('arena-assets') 
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // 2. جلب الرابط العام (Public URL) للصورة
+    const { data } = supabase.storage
+      .from('arena-assets')
+      .getPublicUrl(filePath);
+
+    console.log("الرابط :", data.publicUrl)
+
+    return { success: true, url: data.publicUrl };
+  }catch (error) {
+
     return { success: false, error: error.message };
   }
 },

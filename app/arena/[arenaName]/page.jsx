@@ -1,11 +1,15 @@
+/* eslint-disable react-hooks/purity */
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { arenaService } from '@/services/arenaService';
 import { authService } from '@/services/authService';
 import { supabase } from '../../../lib/supabase';
+import "../../globals.css";
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ArenaDetailsPage() {
+
   const { arenaName } = useParams();
   const router = useRouter();
   const [messages, setMessages] = useState([]);
@@ -14,6 +18,10 @@ export default function ArenaDetailsPage() {
   const [arenaData,setArenaData]=useState(null);
   const decodedName = decodeURIComponent(arenaName);
   const [role,setRole]=useState(null);
+  const reactionsList = ['☹️', '😂', '👍🏻', '❤️', '🔥'];
+  const [messageReactions, setMessageReactions] = useState({}); // { messageId: { emoji: count, userReacted: true } }
+  const [floatingEmojis, setFloatingEmojis] = useState([]);
+  
   
 
   // مصفوفة الألوان الخمسة اللي طلبتيها لمربعات الرسائل
@@ -31,13 +39,15 @@ export default function ArenaDetailsPage() {
   const counts = {};
 
   msgs.forEach(m => {
-    const words = m.body.split(/\s+/);
-    words.forEach(w => {
+     if(m&&m.body){
+      const words = m.body.split(/\s+/);
+      words.forEach(w => {
       const clean = w.trim().replace(/[^\u0621-\u064A]/g, ''); // تنظيف الكلمة (حروف عربية فقط)
-      if (clean.length > 2 && !commonWords.includes(clean)) {
-        counts[clean] = (counts[clean] || 0) + 1;
+        if (clean.length > 2 && !commonWords.includes(clean)) {
+          counts[clean] = (counts[clean] || 0) + 1;
       }
     });
+  }
   });
 
   return Object.entries(counts)
@@ -60,10 +70,74 @@ export default function ArenaDetailsPage() {
   return msgDate.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' });
 };
 
+const handleReactionToggle = async (messageId, emoji) => {
+  if (!user) return;
+  
+  // 1. تحديث الواجهة فوراً (Optimistic UI)
+  setMessages((prevMessages) =>
+    prevMessages.map((msg) => {
+      if (msg.id === messageId) {
+        const currentReactions = msg.reactions?.[emoji] || [];
+        const hasReacted = currentReactions.some(r => r.PUserName === user.userName);
+
+        const updatedReactions = hasReacted
+          ? currentReactions.filter(r => r.PUserName !== user.userName)
+          : [...currentReactions, { PUserName: user.userName, reaction: emoji }];
+
+        return {
+          ...msg,
+          reactions: { ...msg.reactions, [emoji]: updatedReactions }
+        };
+      }
+      return msg;
+    })
+  );
+
+  // 2. إطلاق الانفجار فوراً عند الكل (قبل انتظار الداتابيز)
+  supabase.channel(`arena:${decodedName}`).send({
+    type: 'broadcast',
+    event: 'emoji_burst',
+    payload: { emoji, messageId }
+  });
+  triggerFloatingEmoji(emoji);
+
+  // 3. تحديث الداتابيز (مرة واحدة فقط!)
+  try {
+    await arenaService.toggleReaction(messageId, emoji, user.userName, decodedName);
+  } catch (error) {
+    console.error("فشل التفاعل في الداتابيز:", error);
+    // هنا ممكن تسوين تراجع (Rollback) للـ state لو حابة
+  }
+};
+
+const triggerFloatingEmoji = (emoji) => {
+  const burstCount = 8; // 👈 نطلق 8 حبات في المرة الواحدة لحماس أكثر!
+  const newEmojis = [];
+
+  for (let i = 0; i < burstCount; i++) {
+    newEmojis.push({
+      id: Date.now() + i,
+      emoji: emoji,
+      // توزيع عشوائي يملأ أطراف الشاشة يمين ويسار
+      xOffset: Math.random() > 0.5 
+        ? Math.random() * 400 + 300   // المنطقة اليمنى
+        : -(Math.random() * 400 + 300) // المنطقة اليسرى
+    });
+  }
+
+  setFloatingEmojis(prev => [...prev, ...newEmojis]);
+
+  // تنظيفهم بعد 4 ثواني
+  setTimeout(() => {
+    setFloatingEmojis(prev => prev.filter(e => !newEmojis.find(ne => ne.id === e.id)));
+  }, 4000);
+};
+
  useEffect(() => {
   const loadInitialMessages = async () => {
+      const decodedName = decodeURIComponent(arenaName);
 
-    const decodedName = decodeURIComponent(arenaName);
+
     // جلب بيانات الساحة نفسها عشان ناخذ الصورة
     const allArenas = await arenaService.getAllArenas();
     const currentArena = allArenas.find(a => a.name === decodedName);
@@ -80,42 +154,49 @@ export default function ArenaDetailsPage() {
     setMessages(data);
      };
      loadInitialMessages();
-     // 2. تفعيل "الاستقبال اللحظي" (Real-time)
+
+     // 2. تفعيل القناة اللحظية (Chat + Emoji Burst)
   const channel = supabase
-    .channel('arena-chat') // اسم القناة
+    .channel(`arena:${decodedName}`  , {
+  config: {
+    broadcast: { self: true }, // 👈 هذي تخلي الإشارة توصل للكل بما فيهم أنتِ
+  },
+}) // استخدمنا اسم فريد للساحة
+
     .on(
-      'postgres_changes', 
+      'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'ArenaItem', filter: `ArenaName=eq.${decodedName}` },
-      async(payload) => {
-       console.log("وصلت رسالة جديدة", payload)
-       const newMsg=payload.new
-       const { data: prof } = await supabase
-      .from('Profile')
-      .select('profilePic')
-      .eq('pruserName', newMsg.PUserName)
-      .single();
+      async (payload) => {
+        const newMsg = payload.new;
+        const { data: prof } = await supabase
+          .from('Profile')
+          .select('profilePic')
+          .eq('pruserName', newMsg.PUserName)
+          .single();
 
-    const newMessageWithProfile = {
-      ...newMsg,
-      Profile: prof // نضعها داخل Profile مفرد كما في السيرفس
-    };
+        const newMessageWithProfile = {
+          ...newMsg,
+          Profile: prof
+        };
+        setMessages((current) => [newMessageWithProfile, ...current]);
+      }
+    )
 
-    setMessages((current) => [newMessageWithProfile, ...current]);
-  }
-)
-    .subscribe((status)=>
-        console.log("حالة الاتصال الحالية:",status)
-    );
+  // 3. استقبال الإيموجي الطائر
+  .on('broadcast', { event: 'emoji_burst' }, ({ payload }) => {
+    triggerFloatingEmoji(payload.emoji);
+  })
+    .subscribe((status) => console.log("حالة الاتصال الحالية:", status));
     // تنظيف الاتصال عند إغلاق الصفحة
     return () => {
     supabase.removeChannel(channel);
     };
     }, [decodedName]);
 
+
   const handleSend = async () => {
     if (!newMessage.trim() || !user) return;
     
-
     try {
       await arenaService.addArenaItem(decodedName, newMessage);
       setNewMessage("");
@@ -153,6 +234,8 @@ export default function ArenaDetailsPage() {
 };
   return (
     <main className="min-h-screen w-full bg-[#061125] flex flex-col items-center">
+
+      {/*<ParticlesBackground />*/}
       
       {/* 1. الهيدر (المواصفات: 1280x194px) */}
       <header 
@@ -180,11 +263,11 @@ export default function ArenaDetailsPage() {
 
     <div className="relative w-full max-w-[800px] h-[240px] mx-auto mt-2 mb-0 overflow-hidden flex justify-center items-center">
   {getTopWords(messages).map(([word, count], i) => {
-    const neonColors = ['#B37FEB', '#29FF64', '#FF27F0', '#FF891B', '#00CCFF', '#FFD700'];
     
-    // مواقع مركزية ومضغوطة لتقليل المسافات البينية
+    const neonColors = ['#B37FEB', '#29FF64', '#FF27F0', '#FF891B', '#00CCFF', '#FFD700'];
+
     const compactPositions = [
-      { top: '40%', left: '42%' }, // الكلمة المركزية
+      { top: '40%', left: '42%' },
       { top: '28%', left: '32%' },
       { top: '50%', left: '25%' },
       { top: '35%', left: '55%' },
@@ -192,12 +275,37 @@ export default function ArenaDetailsPage() {
       { top: '22%', left: '45%' },
       { top: '65%', left: '35%' },
       { top: '45%', left: '60%' },
-      { top: '18%', left: '35%' },
-      { top: '65%', left: '50%' },
     ];
 
-    const pos = compactPositions[i % compactPositions.length];
+const isTop = i === 0;
+let pos;
 
+if (isTop) {
+  pos = { top: '50%', left: '50%' };
+} else {
+  const perLayer = 4;
+  const layer = Math.floor(i / perLayer);
+  const indexInLayer = i % perLayer;
+
+  const angle = (indexInLayer / perLayer) * 2 * Math.PI;
+
+  // 🔥 نخليه أعرض أفقيًا
+  const baseRadius = 100;
+  const layerGap = 110;
+
+ const sizeFactor = Math.max(1, count / 5);
+
+const radiusX = (baseRadius + layer * layerGap) * sizeFactor + 4;
+const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
+  // 🔥 عشوائية خفيفة (تعطي شكل كلاود)
+  const randomOffset = (Math.random() - 0.5) * 30;
+
+  pos = {
+    top: `calc(50% + ${Math.sin(angle) * radiusY + randomOffset}px)`,
+    left: `calc(50% + ${Math.cos(angle) * radiusX + randomOffset}px)`
+  };
+}
+    // ⭐ أهم كلمة
     return (
       <span 
         key={i}
@@ -205,11 +313,22 @@ export default function ArenaDetailsPage() {
         style={{ 
           top: pos.top,
           left: pos.left,
-          fontSize: `${Math.min(72, 12 + count *11)}px`, // تكبير الأحجام قليلاً لتعويض التباعد
+
+          // ⭐ الحل هنا
+          transform: 'translate(-50%, -50%)',
+
+          fontSize: `${isTop ? 80 : Math.min(72, 12 + count * 11)}px`,
           color: neonColors[i % neonColors.length],
-          //textShadow: `0 0 15px ${neonColors[i % neonColors.length]}`,
-          // التعديل الأساسي هنا: تم حذف الـ rotate لتصبح الكلمات مستقيمة
-          transform: `translate(-50%, -50%)`, 
+
+          textShadow: isTop 
+            ? `0 0 25px ${neonColors[i % neonColors.length]}`
+            : `0 0 10px ${neonColors[i % neonColors.length]}`,
+
+          animation: `
+            float ${3 + i}s ease-in-out infinite,
+            pulse ${2 + i * 0.3}s ease-in-out infinite
+          `,
+
           zIndex: 10 - i,
         }}
       >
@@ -258,11 +377,47 @@ export default function ArenaDetailsPage() {
       whitespace-pre-wrap flex-grow">
         {msg.body}
       </p>
+
+      <div className="mt-4 flex flex-row-reverse justify-center gap-2 border-t border-white/10 pt-3">
+  {reactionsList.map((emoji) => {
+    // نتحقق هل اليوزر الحالي ضغط على هذا الرياكشن؟
+    const hasReacted = msg.reactions?.[emoji]?.some(r => r.PUserName === user?.userName);
+    const count = msg.reactions?.[emoji]?.length || 0;
+
+    return (
+      <button
+        key={emoji}
+        onClick={() => handleReactionToggle(msg.id, emoji)}
+        className={`
+          flex items-center gap-1 px-2 py-1 rounded-full transition-all duration-300
+          ${hasReacted 
+            ? 'bg-white/20 scale-110 border border-[#FF27F0]/50' 
+            : 'hover:bg-white/10 opacity-40 grayscale hover:grayscale-0 hover:opacity-100'}
+        `}
+      >
+        <span className="text-[16px]">{emoji}</span>
+        {count > 0 && (
+          <span className={`text-[10px] font-bold ${hasReacted ? 'text-white' : 'text-white/50'}`}>
+            {count}
+          </span>
+        )}
+      </button>
+    );
+  })}
+</div>
+
+
     </div>))}</section>
 
       {/* 3. مربع البحث/الإرسال (المواصفات: 109px height) */}
       {role==='participant'&&(
       <footer className="fixed bottom-10 z-50">
+        <form 
+    onSubmit={(e) => {
+      e.preventDefault();
+      handleSend();
+    }}
+  >
         <div 
           className="flex items-center w-[1100px] h-[100px] px-8 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
           style={{
@@ -270,7 +425,7 @@ export default function ArenaDetailsPage() {
             backgroundBlendMode: 'soft-light, normal'
           }}
         >
-          <button onClick={handleSend} className="p-4 hover:scale-110 transition-transform text-[#29FF64] font-bold font-['Cairo']">
+          <button type='submit' className="p-4 hover:scale-110 transition-transform text-[#29FF64] font-bold font-['Cairo']">
              ارسال
           </button>
           <input 
@@ -282,8 +437,32 @@ export default function ArenaDetailsPage() {
             outline-none placeholder:text-[#9D9D9D]"
           />
         </div>
+        </form>
       </footer>
       )}
+
+      <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+  <AnimatePresence>
+    {floatingEmojis.map((e) => (
+      <motion.div
+        key={e.id}
+        initial={{ y: '100vh', opacity: 0, x: e.xOffset, scale: 0.5 }}
+        animate={{ 
+          y: '-10vh', // يطير من تحت لفوق تماماً
+          opacity: [0, 1, 1, 0], // يظهر ثم يثبت ثم يتلاشى
+          x: e.xOffset + (Math.random() * 50 - 25), // تمايل خفيف
+          scale: [0.5, 1.5, 1.2],
+          rotate: Math.random() * 40 - 20
+        }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 4, ease: "linear" }}
+        className="absolute left-1/2 text-5xl"
+      >
+        {e.emoji}
+      </motion.div>
+    ))}
+  </AnimatePresence>
+</div>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styled, { keyframes } from "styled-components";
 
 /* ===============================
@@ -129,18 +130,6 @@ const Input = styled.textarea`
 
 /* =============================== */
 
-const AnswerBox = styled.div`
-  width: 100%;
-  min-height: 120px;
-  color: white;
-  font-family: Cairo;
-  font-size: 20px;
-  line-height: 32px;
-  white-space: pre-wrap;
-`;
-
-/* =============================== */
-
 const ErrorText = styled.div`
   color: #ff6b6b;
   font-family: Cairo;
@@ -177,90 +166,45 @@ const SendBtn = styled.button`
   }
 `;
 
-const ToggleBtn = styled.button`
-  background: transparent;
-  border: none;
-  color: #b37feb;
-  font-family: Cairo;
-  font-size: 14px;
-  cursor: pointer;
-`;
-
-/* ===============================
-   Types
-================================ */
-
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
 /* ===============================
    Component
 ================================ */
 
 export default function ChatbotSection() {
+  const router = useRouter();
+
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [mode, setMode] = useState<"question" | "answer">("question");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   /* ===============================
-     Send to API
+     Start chat and move to /homidan
   ================================= */
 
-  const handleSend = async () => {
-  const text = question.trim();
-  if (!text || loading) return;
+  const handleSend = () => {
+    const text = question.trim();
 
-  console.log("[ChatbotSection] sending question:", text);
-
-  setLoading(true);
-  setError("");
-
-  const updatedMessages: ChatMessage[] = [
-    ...messages,
-    { role: "user", content: text },
-  ];
-
-  try {
-    const res = await fetch("/api/humaidan", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: updatedMessages,
-      }),
-    });
-
-    console.log("[ChatbotSection] response status:", res.status);
-
-    const data = await res.json();
-    console.log("[ChatbotSection] response json:", data);
-
-    if (!res.ok) {
-      throw new Error(data?.error || "خطأ في الشات بوت");
+    if (!text || loading) {
+      if (!text) {
+        setError("اكتب سؤالك أولًا.");
+      }
+      return;
     }
 
-    const botReply = String(data.answer || "").trim();
+    setLoading(true);
+    setError("");
 
-    setAnswer(botReply);
-    setMessages([
-      ...updatedMessages,
-      { role: "assistant", content: botReply },
-    ]);
-    setMode("answer");
-    setQuestion("");
-  } catch (err) {
-    console.error("[ChatbotSection] catch error:", err);
-    setError("عذرًا حصل خطأ بسيط، الشات بوت متعطل حاليًا.");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      sessionStorage.removeItem("humaidan_chat_messages");
+      sessionStorage.setItem("humaidan_initial_question", text);
+
+      router.push("/homidan");
+    } catch (err) {
+      console.error("[ChatbotSection] navigation error:", err);
+      setError("عذرًا حصل خطأ بسيط، تعذر بدء المحادثة.");
+      setLoading(false);
+    }
+  };
 
   /* ===============================
      Enter Send
@@ -271,12 +215,6 @@ export default function ChatbotSection() {
       e.preventDefault();
       handleSend();
     }
-  };
-
-  /* =============================== */
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "question" ? "answer" : "question"));
   };
 
   /* ===============================
@@ -295,30 +233,24 @@ export default function ChatbotSection() {
       </Header>
 
       <ChatBox>
-        {mode === "question" && (
-          <Input
-            placeholder="اسأل حميدان........"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-          />
-        )}
-
-        {mode === "answer" && <AnswerBox>{answer}</AnswerBox>}
+        <Input
+          placeholder="اسأل حميدان........"
+          value={question}
+          onChange={(e) => {
+            setQuestion(e.target.value);
+            if (error) setError("");
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={loading}
+        />
 
         {error && <ErrorText>{error}</ErrorText>}
 
         <Actions>
+          <div />
           <SendBtn onClick={handleSend} disabled={loading}>
             {loading ? "..." : "إرسال"}
           </SendBtn>
-
-          {answer && (
-            <ToggleBtn onClick={toggleMode}>
-              {mode === "question" ? "عرض الجواب" : "عرض السؤال"}
-            </ToggleBtn>
-          )}
         </Actions>
       </ChatBox>
     </Wrapper>

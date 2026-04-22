@@ -44,7 +44,7 @@ const Container = styled.div`
   position: relative;
 
   width: 100%;
-  max-width: 1280px;
+  max-width: 1550px;
 
   height: 457px;
 
@@ -81,10 +81,10 @@ const Container = styled.div`
 const Chair = styled.div`
   position: absolute;
 
-  left: 40px;
+  left: .75px;
   bottom: -70px;
 
-  width: 469px;
+  width: 600px;
   height: 606px;
 
   z-index: 2;
@@ -267,6 +267,7 @@ const Light3 = styled(LightBase)`
 ================================ */
 
 export default function CampSection() {
+  const router=useRouter();
   return (
     <Wrapper>
 
@@ -294,7 +295,7 @@ export default function CampSection() {
 
           <Text3>حيث تصنع التحالفات ..</Text3>
 
-          <Button >
+          <Button onClick={() => router.push("/camp")}>
             <span>الـمـعـسـكـر</span>
           </Button>
 

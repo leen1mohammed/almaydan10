@@ -1,6 +1,7 @@
 "use client";
 
 import styled, { keyframes } from "styled-components";
+import { useRouter } from "next/navigation"
 
 /* ===============================
    Animation
@@ -11,6 +12,7 @@ const float = keyframes`
   50%  { transform: translateY(-12px); }
   100% { transform: translateY(0); }
 `;
+
 
 /* ===============================
    Container
@@ -238,13 +240,13 @@ const ImageBox = styled.div`
   z-index: 2;
 
   img {
-    width: 70vw;
+    width: 1200px;
     max-width: 1150px;
     min-width: 650px;
 
     height: auto;
 
-    transform: translateY(-180px) translateX(60px);
+    transform: translateY(-50px) translateX(60px);
 
     filter: drop-shadow(0 30px 55px rgba(0,0,0,0.7));
 
@@ -267,6 +269,7 @@ const ImageBox = styled.div`
 ================================ */
 
 export default function HighlightSection() {
+  const router=useRouter();
   return (
     <Highlight>
 
@@ -286,7 +289,7 @@ export default function HighlightSection() {
           <h2>جاهـز يــبــدأ</h2>
           <Bold>الحــمــاس؟</Bold>
 
-          <Button>
+          <Button onClick={() => router.push("/live")}>
             <span> المبــاريــات</span>
           </Button>
         </Text>

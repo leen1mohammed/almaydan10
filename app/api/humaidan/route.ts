@@ -36,26 +36,21 @@ function sanitizeMessages(input: unknown): UiMessage[] {
 
 const DIRECT_ANSWER_POLICY = `
 تعليمات تنفيذية إضافية:
-- جاوب مباشرة أولًا كلما أمكن.
-- لا تطلب من المستخدم التوضيح إلا إذا كان السؤال غير مفهوم فعلًا أو ناقصًا بشكل يمنع أي جواب مفيد.
-- إذا كان السؤال عامًا، فأعطِ جوابًا عامًا ومباشرًا بدل طلب التوضيح.
-- إذا كان هناك أكثر من احتمال معقول للسؤال، اختر الاحتمال الأكثر شيوعًا وأجب عليه أولًا بإيجاز.
-- بعد الجواب يمكنك إضافة سطر قصير فقط يفتح باب التوضيح، مثل:
+- أعطِ المستخدم جوابًا مباشرًا أولًا كلما أمكن.
+- لا تجعل الرد الأول سؤالًا توضيحيًا إلا إذا كان السؤال غير مفهوم فعلًا.
+- إذا كان السؤال عامًا، فأعطِ جوابًا عامًا ومفيدًا بدل طلب التوضيح.
+- إذا كان السؤال يحتمل أكثر من معنى معقول، فاختر المعنى الأكثر شيوعًا وأجب عليه أولًا.
+- إذا احتجت بعد الجواب إلى فتح باب التوضيح، فاستخدم سطرًا قصيرًا فقط مثل:
   "إذا كنت تقصد جانبًا معينًا أقدر أوضح أكثر."
-- لا تبدأ الرد بسؤال توضيحي إلا عند الضرورة القصوى.
-- لا تُكثر من الاعتذارات أو طلبات الشرح من المستخدم.
-- اجعل أول رد مختصرًا ومباشرًا.
+- تجنب كثرة الأسئلة العكسية للمستخدم.
+- اجعل أول رد مختصرًا ومباشرًا ومفيدًا.
+- لا ترفض الإجابة لمجرد وجود بعض الغموض البسيط إذا كان بالإمكان إعطاء جواب نافع.
 `;
 
 export async function POST(req: Request) {
   try {
-    console.log("[HUMAIDAN_API] POST called");
-
     const body = await req.json().catch(() => ({}));
-    console.log("[HUMAIDAN_API] request body:", body);
-
     const messages = sanitizeMessages(body?.messages);
-    console.log("[HUMAIDAN_API] sanitized messages:", messages);
 
     if (!messages.length) {
       return Response.json(
@@ -66,9 +61,6 @@ export async function POST(req: Request) {
 
     const model = process.env.OPENAI_MODEL;
     const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
-
-    console.log("[HUMAIDAN_API] model exists:", model);
-    console.log("[HUMAIDAN_API] api key exists:", hasApiKey);
 
     if (!model) {
       return Response.json(
@@ -99,15 +91,10 @@ export async function POST(req: Request) {
       })),
     ];
 
-    console.log("[HUMAIDAN_API] calling OpenAI...");
-
     const response = await client.responses.create({
       model,
       input,
     });
-
-    console.log("[HUMAIDAN_API] OpenAI response received");
-    console.log("[HUMAIDAN_API] output_text:", response.output_text);
 
     return Response.json({
       answer:

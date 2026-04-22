@@ -99,7 +99,8 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    //initAuth();
+    
+    initAuth();
 
     const { data: authListener } = authService.onAuthChange((event, session) => {
       if (event === "SIGNED_OUT") {
