@@ -278,4 +278,17 @@ uploadImage: async (file) => {
   }
 },
 
+// جلب عينات من رسايل الساحات الثانية
+async getOtherArenasMessages(currentArenaName) {
+  const { data, error } = await supabase
+    .from('ArenaItem')
+    .select('body, ArenaName')
+    .neq('ArenaName', currentArenaName) // استبعاد الساحة الحالية
+    .order('created_at', { ascending: false })
+    .limit(10); // نجيب آخر 10 رسايل عشان نختار منها
+
+  if (error) throw error;
+  return data;
+},
+
 }
