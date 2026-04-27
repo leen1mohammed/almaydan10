@@ -25,7 +25,6 @@ export const arenaService = {
     }));
   },
 
-
   // 2. جلب الساحات التي انضم لها المستخدم مع نقاطه
   getMyArenas: async (userName) => {
     try{
@@ -101,12 +100,11 @@ export const arenaService = {
 
   
   toggleReaction: async (itemId, reaction, userName, arenaName) => {
-  console.log("جاري البدء في التفاعل لـ:", { itemId, reaction, userName });
-
-  // 1. البحث عن السطر
+  
+  // 1. search
   const { data: existing, error: fetchError } = await supabase
     .from('Item_Reactions')
-    .select('*') // خليه يجيب كل شي الحين عشان نتأكد
+    .select('*')
     .eq('item_id', itemId)
     .eq('reaction', reaction)
     .eq('PUserName', userName)
@@ -114,24 +112,19 @@ export const arenaService = {
 
   if (fetchError) {
     console.error("خطأ أثناء البحث:", fetchError.message);
-    return;
-  }
-
-  console.log("نتيجة البحث عن تفاعل سابق:", existing);
-
+    return;}
+  //if user already clicked reaction then delete it
   if (existing) {
-    console.log("وجدنا تفاعل سابق، جاري الحذف للـ ID:", existing.id);
     const { error: deleteError } = await supabase
       .from('Item_Reactions')
       .delete()
       .eq('id', existing.id);
 
-
     if (deleteError) console.error("خطأ في الحذف:", deleteError.message);
     else console.log("تم الحذف بنجاح ✅");
     return { action: 'deleted' };
+  //new reaction
   } else {
-    console.log("لم نجد تفاعل، جاري الإضافة...");
     const { data: insertedData, error: insertError } = await supabase
       .from('Item_Reactions')
       .insert({
@@ -174,17 +167,16 @@ export const arenaService = {
     return { success: true };
   },
 
-  // 4. إضافة "آيتم" جديد داخل الساحة (تفاعل المستخدم)
-  // ملاحظة: هنا المفروض يكون فيه Trigger في الداتابيز يزيد النقاط تلقائياً في جدول Joins
+  // 4.insert new message to arena and increase user point
   addArenaItem: async (arenaName, body) => {
+    //get user
     const { data: { user } } = await supabase.auth.getUser();
-
     const { data: memberData } = await supabase
         .from('Member')
         .select('userName')
         .eq('email', user.email) 
         .single();
-    
+    //add new arena item
     const { data, error } = await supabase
       .from('ArenaItem')
       .insert([
@@ -193,12 +185,10 @@ export const arenaService = {
           body: body,
           PUserName:memberData.userName,
           date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString('it-IT') // تنسيق HH:MM:SS
-        }
-      ]);
+          time: new Date().toLocaleTimeString('it-IT') } ]);
     
     if (error) throw error;
-
+    //increse user points to that arena
     const { error: updateError } = await supabase.rpc('increment_xp', { 
     arena_n: arenaName, 
     user_n: memberData.userName,

@@ -1,28 +1,32 @@
 import { supabase } from "../lib/supabase";
 import{sendWelcomeEmail} from "../services/EmailService";
 // ─────────────────────────────────────────────
+
 // REGISTER
-// ─────────────────────────────────────────────
 export const registerUser = async (email, password, userName, fullName) => {
   // 1. Create auth account
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
   });
-  if (authError) return { success: false, message: authError.message };
+
+  if (authError) 
+    return { success: false, message: authError.message };
 
   try {
     // 2. Insert into Member table
     const { error: memberError } = await supabase.from('Member').insert([
       { userName, name: fullName, email, password },
     ]);
-    if (memberError) throw memberError;
+    if (memberError)
+       throw memberError;
 
     // 3. Insert into Profile table
     const { error: profileError } = await supabase.from('Profile').insert([
       { pruserName: userName, bio: "", profilePic: "" },
     ]);
-    if (profileError) throw profileError;
+    if (profileError) 
+      throw profileError;
 
     // 4. Insert into Participant table
     const { error: participantError } = await supabase.from('Participant').insert([
@@ -30,10 +34,11 @@ export const registerUser = async (email, password, userName, fullName) => {
     ]);
     if (participantError) throw participantError;
 
+    //send welcome email
     await sendWelcomeEmail(fullName,email);
 
 
-    // 5. ✅ Auto sign-in after registration so user doesn't need to login manually
+    // 5. Auto sign-in after registration so user doesn't need to login manually
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -44,20 +49,17 @@ export const registerUser = async (email, password, userName, fullName) => {
       return { success: true, redirectTo: '/login' };
     }
 
-    // 6. ✅ Auto-login worked → send directly to profile as first time user
+    // 6. Auto-login worked → send directly to profile as first time user
     return { success: true, redirectTo: '/profile?firstLogin=true' };
 
   } catch (err) {
     console.error("خطأ في التسجيل:", err.message);
     return { success: false, message: "حصلت مشكلة في تجهيز الجداول المرتبطة." };
   }
-
-
 };
 
-// ─────────────────────────────────────────────
+
 // CHECK USERNAME
-// ─────────────────────────────────────────────
 export const checkUsername = async (userName) => {
   const { data } = await supabase
     .from('Member')
@@ -69,12 +71,8 @@ export const checkUsername = async (userName) => {
 
 // ─────────────────────────────────────────────
 // LOGIN
-// Returns: { success, data, isFirstLogin }
 // isFirstLogin = true when profilePic is empty → redirect to profile
-// ─────────────────────────────────────────────
 export const loginUser = async (userName, password) => {
-  console.log("محاولة دخول", userName);
-
   // 1. Get email from Member using userName
   const { data: memberData, error: memberError } = await supabase
     .from('Member')
@@ -83,8 +81,7 @@ export const loginUser = async (userName, password) => {
     .single();
 
   if (memberError || !memberData) {
-    return { success: false, message: "اسم المستخدم هذا غير موجود" };
-  }
+    return { success: false, message: "اسم المستخدم هذا غير موجود" }; }
 
   // 2. Sign in with Supabase Auth
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -101,20 +98,8 @@ export const loginUser = async (userName, password) => {
     .maybeSingle();
 
   const isFirstLogin = !profileData?.profilePic;
-
   return { success: true, data, isFirstLogin };
 };
-
-export const checkEmail = async (email) => {
-  const { data, error } = await supabase
-    .from('Member')
-    .select('email')
-    .eq('email', email)
-    .single();
-
-  return !!data; // يرجع true إذا حصل إيميل، و false إذا ما حصل
-};
-
 // GOOGLE LOGIN
 export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -129,6 +114,16 @@ export const signInWithGoogle = async () => {
   }
 
   return { success: true };
+};
+
+export const checkEmail = async (email) => {
+  const { data, error } = await supabase
+    .from('Member')
+    .select('email')
+    .eq('email', email)
+    .single();
+
+  return !!data; // يرجع true إذا حصل إيميل، و false إذا ما حصل
 };
 // ─────────────────────────────────────────────
 // AUTH SERVICE

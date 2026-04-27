@@ -158,10 +158,10 @@ const triggerFloatingEmoji = (emoji) => {
      // 2. تفعيل القناة اللحظية (Chat + Emoji Burst)
   const channel = supabase
     .channel(`arena:${decodedName}`  , {
-  config: {
-    broadcast: { self: true }, // 👈 هذي تخلي الإشارة توصل للكل بما فيهم أنتِ
-  },
-}) // استخدمنا اسم فريد للساحة
+      config: {
+        broadcast: { self: true }, // 👈 هذي تخلي الإشارة توصل للكل بما فيهم أنتِ
+      },
+    }) // استخدمنا اسم فريد للساحة
 
     .on(
       'postgres_changes',
