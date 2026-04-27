@@ -20,9 +20,6 @@ const AVATARS = [
 
 const DEFAULT_AVATAR = "/images/avatars/avatar1.png";
 
-// ─────────────────────────────────────────────
-// Avatar Picker Modal
-// ─────────────────────────────────────────────
 function AvatarModal({
   current,
   onSelect,
@@ -113,12 +110,9 @@ function AvatarModal({
   );
 }
 
-// ─────────────────────────────────────────────
-// Read-only field
-// ─────────────────────────────────────────────
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-2 w-full" dir='rtl'>
+    <div className="flex flex-col gap-2 w-full" dir="rtl">
       <label className="text-[18px] font-[600] text-right text-white/80 font-['Cairo']">{label}</label>
       <div className="w-full h-[40px] bg-white/5 border-[1.5px] border-[#B37FEB]/40 rounded-md px-[12px] flex items-center justify-end text-sm text-white/50 font-['Cairo'] cursor-not-allowed select-none">
         {value || "—"}
@@ -127,9 +121,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// Admin Card (shown on own profile when user is admin)
-// ─────────────────────────────────────────────
 function AdminCard({
   contactInfo,
   onChange,
@@ -186,18 +177,18 @@ function AdminCard({
 // Main ProfilePage
 // ─────────────────────────────────────────────
 export default function ProfilePage() {
-  const [name, setName]             = useState("");
-  const [username, setUsername]     = useState("");
-  const [email, setEmail]           = useState("");
-  const [bio, setBio]               = useState("");
-  const [profilePic, setProfilePic] = useState(DEFAULT_AVATAR);
-  const [zoneinfo, setZoneinfo]     = useState("");
-  const [isAdmin, setIsAdmin]       = useState(false);
+  const [name, setName]               = useState("");
+  const [username, setUsername]       = useState("");
+  const [email, setEmail]             = useState("");
+  const [bio, setBio]                 = useState("");
+  const [profilePic, setProfilePic]   = useState(DEFAULT_AVATAR);
+  const [zoneinfo, setZoneinfo]       = useState("");
+  const [isAdmin, setIsAdmin]         = useState(false);
   const [contactInfo, setContactInfo] = useState("");
-  const [loading, setLoading]       = useState(true);
-  const [isSaving, setIsSaving]     = useState(false);
-  const [saveMsg, setSaveMsg]       = useState<string | null>(null);
-  const [showModal, setShowModal]   = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [isSaving, setIsSaving]       = useState(false);
+  const [saveMsg, setSaveMsg]         = useState<string | null>(null);
+  const [showModal, setShowModal]     = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   const router = useRouter();
@@ -214,12 +205,10 @@ export default function ProfilePage() {
         setUsername(user.userName);
         setName(user.name);
 
-        // ✅ Check if admin
         const adminCheck = await authService.checkIsAdmin(user.userName);
         setIsAdmin(adminCheck);
 
         if (adminCheck) {
-          // Fetch contactInfo from Admin table
           const { data: adminData } = await supabase
             .from("Admin")
             .select("contactInfo")
@@ -228,7 +217,6 @@ export default function ProfilePage() {
           if (adminData) setContactInfo(adminData.contactInfo ?? "");
         }
 
-        // Fetch bio + profilePic from Profile
         const { data: profileData } = await supabase
           .from("Profile")
           .select("bio, profilePic")
@@ -240,7 +228,6 @@ export default function ProfilePage() {
           setProfilePic(profileData.profilePic || DEFAULT_AVATAR);
         }
 
-        // Fetch zoneinfo from Participant (only needed for non-admins)
         if (!adminCheck) {
           const { data: participantData } = await supabase
             .from("Participant")
@@ -273,9 +260,8 @@ export default function ProfilePage() {
       router.replace("/profile");
     }
   };
-    
-  // Admin only saves profilePic, regular user saves bio + zoneinfo + profilePic
-   const handleSave = async () => {
+
+  const handleSave = async () => {
     if (!username) return;
 
     if (isAdmin) {
@@ -285,28 +271,28 @@ export default function ProfilePage() {
         setTimeout(() => setSaveMsg(null), 3000);
         return;
       }
-  }
+    }
 
-  setIsSaving(true);
-  setSaveMsg(null);
+    setIsSaving(true);
+    setSaveMsg(null);
 
-  if (isAdmin) {
-    const [{ error: profileErr }, { error: adminErr }] = await Promise.all([
-      supabase.from("Profile").update({ profilePic }).eq("pruserName", username),
-      supabase.from("Admin").update({ contactInfo }).eq("AuserName", username),
-    ]);
-    setSaveMsg(profileErr || adminErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
-  } else {
-    const [{ error: profileErr }, { error: participantErr }] = await Promise.all([
-      supabase.from("Profile").update({ bio, profilePic }).eq("pruserName", username),
-      supabase.from("Participant").update({ zoneinfo }).eq("PuserName", username),
-    ]);
-    setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
-  }
+    if (isAdmin) {
+      const [{ error: profileErr }, { error: adminErr }] = await Promise.all([
+        supabase.from("Profile").update({ profilePic }).eq("pruserName", username),
+        supabase.from("Admin").update({ contactInfo }).eq("AuserName", username),
+      ]);
+      setSaveMsg(profileErr || adminErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+    } else {
+      const [{ error: profileErr }, { error: participantErr }] = await Promise.all([
+        supabase.from("Profile").update({ bio, profilePic }).eq("pruserName", username),
+        supabase.from("Participant").update({ zoneinfo }).eq("PuserName", username),
+      ]);
+      setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+    }
 
-  setTimeout(() => setSaveMsg(null), 3000);
-  setIsSaving(false);
-};
+    setTimeout(() => setSaveMsg(null), 3000);
+    setIsSaving(false);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -336,13 +322,11 @@ export default function ProfilePage() {
         <Glow />
         <div className="z-10 w-full max-w-[923px] flex flex-col items-center pb-28 px-4">
 
-          {/* Title */}
           <h1 className="w-full text-center text-[80px] font-[900] leading-[100px] text-white mt-10 mb-16"
             style={{ textShadow: "0 3px 0 #FF27F0" }}>
             صفحتك الشخصية
           </h1>
 
-          {/* Header: Avatar + Save */}
           <div className="flex flex-row items-center justify-between w-full mb-14">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -357,7 +341,6 @@ export default function ProfilePage() {
               <div className="text-right">
                 <h2 className="text-[24px] font-bold">{name || "الاسم"}</h2>
                 <p className="text-[16px] opacity-60">@{username || "username"}</p>
-                {/* ✅ Admin badge next to username */}
                 {isAdmin && (
                   <span className="inline-block mt-1 text-[11px] font-bold px-2 py-0.5 rounded-full border border-[#29FF64]/40 text-[#29FF64]"
                     style={{ background: "rgba(41,255,100,0.08)" }}>
@@ -386,7 +369,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Read-only fields */}
           <div className="grid grid-cols-2 gap-x-[60px] gap-y-8 w-full mb-10">
             <ReadOnlyField label="الاسم" value={name} />
             <ReadOnlyField label="اسم المستخدم" value={`@${username}`} />
@@ -394,12 +376,10 @@ export default function ProfilePage() {
             <div />
           </div>
 
-          {/* ✅ ADMIN: show admin card only */}
           {isAdmin ? (
             <AdminCard contactInfo={contactInfo} onChange={setContactInfo} />
-                    ) : (
+          ) : (
             <>
-              {/* عنك */}
               <div className="w-full flex flex-col gap-3 mb-12">
                 <label className="text-[20px] font-[700] text-right text-white font-['Cairo']">عنك</label>
                 <p className="text-right text-white/40 text-[13px] -mt-1">
@@ -413,13 +393,12 @@ export default function ProfilePage() {
                   placeholder="مثال: أنا لاعب فورتنايت منذ 2019، فريقي المفضل Falcons، هدفي الوصول للمحترفين..."
                   className="w-full bg-transparent border-[1.5px] border-[#B37FEB] rounded-xl px-[14px] py-[12px] text-right text-sm text-white outline-none focus:border-[#FF27F0] focus:ring-1 focus:ring-[#FF27F0] transition-all resize-none font-['Cairo'] leading-relaxed placeholder:text-white/20"
                 />
-                <p className=" text-white/30 text-[12px]">{bio.length}/300</p>
+                <p className="text-white/30 text-[12px]">{bio.length}/300</p>
               </div>
 
-              {/* Zone Info */}
               <div className="w-full mb-14">
                 <div className="flex items-center gap-3 mb-4">
-                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir='rtl'>ساحة إنجازاتك</label>
+                  <label className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir="rtl">ساحة إنجازاتك</label>
                   <span className="text-[28px]">🏆</span>
                 </div>
                 <div className="w-full rounded-2xl p-[1.5px] relative"
@@ -459,7 +438,6 @@ export default function ProfilePage() {
             </>
           )}
 
-          {/* Logout */}
           <button onClick={handleLogout}
             className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95">
             تسجيل خروج

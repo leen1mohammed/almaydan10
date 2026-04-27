@@ -15,6 +15,7 @@ export default function VisitorProfilePage() {
   const [arenas, setArenas]           = useState([]);
   const [isAdmin, setIsAdmin]         = useState(false);
   const [contactInfo, setContactInfo] = useState("");
+  const [adminEmail, setAdminEmail]   = useState("");
   const [loading, setLoading]         = useState(true);
   const [notFound, setNotFound]       = useState(false);
 
@@ -24,10 +25,10 @@ export default function VisitorProfilePage() {
       try {
         const decodedUsername = decodeURIComponent(username);
 
-        // 1. Fetch name from Member
+        // 1. Fetch name + email from Member
         const { data: memberData } = await supabase
           .from("Member")
-          .select("name")
+          .select("name, email")
           .eq("userName", decodedUsername)
           .maybeSingle();
 
@@ -44,9 +45,10 @@ export default function VisitorProfilePage() {
         if (adminData) {
           setIsAdmin(true);
           setContactInfo(adminData.contactInfo ?? "");
+          setAdminEmail(memberData.email ?? "");
         }
 
-        // 3. Fetch profilePic from Profile
+        // 3. Fetch profilePic + bio from Profile
         const { data: profileData } = await supabase
           .from("Profile")
           .select("bio, profilePic")
@@ -125,7 +127,6 @@ export default function VisitorProfilePage() {
           <div className="text-center">
             <h2 className="text-[28px] font-[900]">{name || decodeURIComponent(username)}</h2>
             <p className="text-[16px] opacity-50 mt-1">@{decodeURIComponent(username)}</p>
-            {/* Admin badge */}
             {isAdmin && (
               <span className="inline-block mt-2 text-[12px] font-bold px-3 py-1 rounded-full border border-[#29FF64]/40 text-[#29FF64]"
                 style={{ background: "rgba(41,255,100,0.08)" }}>
@@ -135,36 +136,120 @@ export default function VisitorProfilePage() {
           </div>
         </div>
 
-        {/* ✅ ADMIN: show contact card only */}
+        {/* ADMIN: contact card */}
         {isAdmin ? (
           <div className="w-full mb-10">
-            <div className="flex items-center justify-end gap-3 mb-4">
-              <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">للتواصل</h3>
-                <span className="text-white font-['Cairo'] text-[18px] font-bold">
-                  {contactInfo
-                    ? contactInfo.replace(/^(phone:|email:)/, '')
-                    : "—"}
-                </span>
-            </div>
+            <div style={{
+              background: "rgba(255,255,255,0.02)",
+              border: "0.5px solid rgba(179,127,235,0.3)",
+              borderRadius: "16px",
+              overflow: "hidden",
+              width: "100%",
+            }}>
 
-            <div className="w-full rounded-2xl p-[1.5px]"
-              style={{ background: "linear-gradient(135deg, #29FF64, #B37FEB, #FF27F0)" }}>
-              <div className="w-full rounded-2xl px-6 py-8 flex flex-col items-end gap-4"
-                style={{ background: "linear-gradient(145deg, #0D0A2E, #0a1628)", boxShadow: "inset 0 0 40px rgba(41,255,100,0.07)" }}>
-
-                <div className="absolute top-4 left-4 text-[11px] font-bold px-3 py-1 rounded-full border border-[#29FF64]/40 text-[#29FF64]"
-                  style={{ background: "rgba(41,255,100,0.08)" }}>
-                  ADMIN
+              {/* Header */}
+              <div style={{
+                background: "rgba(255,255,255,0.03)",
+                padding: "1.25rem 1.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "14px",
+                borderBottom: "0.5px solid rgba(179,127,235,0.2)",
+              }}>
+                <div style={{
+                  width: "56px", height: "56px", borderRadius: "50%",
+                  background: "rgba(41,255,100,0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "22px", flexShrink: 0,
+                }}>🛡️</div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "white", fontFamily: "Cairo, sans-serif" }}>
+                    للتواصل مع المشرف
+                  </p>
+                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.4)", fontFamily: "Cairo, sans-serif" }}>
+                    هذا المستخدم مسؤول في الميدان
+                  </p>
                 </div>
+                <span style={{
+                  marginRight: "auto",
+                  background: "rgba(41,255,100,0.1)",
+                  color: "#29FF64",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(41,255,100,0.3)",
+                  fontFamily: "Cairo, sans-serif",
+                }}>ADMIN</span>
+              </div>
 
-                <p className="text-right text-white/40 text-[13px] font-['Cairo']">
-                  هذا المستخدم أدمن في الميدان — يمكنك التواصل معه عبر:
-                </p>
+              {/* Contact rows */}
+              <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "12px" }}>
 
-                <div className="flex items-center gap-3 bg-white/5 border border-[#29FF64]/30 rounded-xl px-5 py-4 w-full justify-end">
-                  <span className="text-white font-['Cairo'] text-[18px] font-bold">{contactInfo || "—"}</span>
-                  <span className="text-[#29FF64] text-[24px]">📱</span>
-                </div>
+                {/* Phone */}
+                {contactInfo ? (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "14px",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "0.5px solid rgba(41,255,100,0.2)",
+                    borderRadius: "12px", padding: "14px 16px",
+                  }}>
+                    <div style={{
+                      width: "38px", height: "38px", borderRadius: "50%",
+                      background: "rgba(41,255,100,0.08)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "16px", flexShrink: 0,
+                    }}>📱</div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.4)", fontFamily: "Cairo, sans-serif" }}>رقم الجوال</p>
+                      <p style={{ margin: "3px 0 0", fontSize: "16px", fontWeight: 700, color: "white", direction: "ltr", textAlign: "right", fontFamily: "Cairo, sans-serif" }}>
+                        {contactInfo}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "14px",
+                    background: "rgba(255,255,255,0.02)",
+                    border: "0.5px solid rgba(255,255,255,0.08)",
+                    borderRadius: "12px", padding: "14px 16px", opacity: 0.4,
+                  }}>
+                    <div style={{
+                      width: "38px", height: "38px", borderRadius: "50%",
+                      background: "rgba(255,255,255,0.05)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "16px", flexShrink: 0,
+                    }}>📱</div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.4)", fontFamily: "Cairo, sans-serif" }}>رقم الجوال</p>
+                      <p style={{ margin: "3px 0 0", fontSize: "15px", color: "rgba(255,255,255,0.3)", fontFamily: "Cairo, sans-serif" }}>لم يُضف رقم بعد</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Email */}
+                {adminEmail && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "14px",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "0.5px solid rgba(179,127,235,0.2)",
+                    borderRadius: "12px", padding: "14px 16px",
+                  }}>
+                    <div style={{
+                      width: "38px", height: "38px", borderRadius: "50%",
+                      background: "rgba(179,127,235,0.08)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "16px", flexShrink: 0,
+                    }}>📧</div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.4)", fontFamily: "Cairo, sans-serif" }}>البريد الإلكتروني</p>
+                      <p style={{ margin: "3px 0 0", fontSize: "16px", fontWeight: 700, color: "white", direction: "ltr", textAlign: "right", fontFamily: "Cairo, sans-serif" }}>
+                        {adminEmail}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
@@ -195,18 +280,14 @@ export default function VisitorProfilePage() {
                 <span className="text-[28px]">🏆</span>
               </div>
               <div className="w-full rounded-2xl p-[1.5px] relative"
-                style={{ background: zoneinfo ? "linear-gradient(135deg, #FF27F0, #B37FEB, #29FF64)" : "linear-gradient(135deg, #B37FEB44, #B37FEB22, #29FF6422)" }}>
-                <div className="w-full rounded-2xl px-6 py-6"
+                style={{ background: zoneinfo ? "linear-gradient(135deg, #FF27F0, #B37FEB, #29FF64)" : "linear-gradient(135deg, #333, #555)" }}>
+                <div className="w-full rounded-2xl px-6 py-6 flex flex-col gap-4"
                   style={{ background: "linear-gradient(145deg, #0D0A2E, #0a1628)", boxShadow: "inset 0 0 40px rgba(179,127,235,0.07)" }}>
-                  <div className="absolute top-4 left-4 text-[11px] font-bold px-3 py-1 rounded-full border border-[#FF27F0]/40 text-[#FF27F0]"
-                    style={{ background: "rgba(255,39,240,0.08)" }}>
-                    ZONE
-                  </div>
                   {zoneinfo ? (
-                    <p className="text-right text-white/80 text-sm font-['Cairo'] leading-loose whitespace-pre-wrap">{zoneinfo}</p>
+                    <p className="text-right text-white/80 text-[14px] font-['Cairo'] leading-loose whitespace-pre-wrap">{zoneinfo}</p>
                   ) : (
-                    <p className="text-right text-white/25 text-sm font-['Cairo'] leading-loose italic pt-4">
-                      لم يسجّل هذا اللاعب إنجازاته بعد... ربما هو يتدرب الآن! ⚡
+                    <p className="text-right text-white/25 text-[14px] font-['Cairo'] italic">
+                      هذا اللاعب لم يُضف إنجازاته بعد... 🏅
                     </p>
                   )}
                 </div>
@@ -214,42 +295,40 @@ export default function VisitorProfilePage() {
             </div>
 
             {/* Arenas */}
-            <div className="w-full mb-10">
-              <div className="flex items-center justify-end gap-3 mb-6">
-                <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">الساحات المنضم إليها</h3>
-                <span className="text-[28px]">⚔️</span>
-              </div>
-              {arenas.length > 0 ? (
-                <div className="grid grid-cols-3 gap-4">
-                  {arenas.map((arena) => (
-                    <div key={arena.name}
-                      onClick={() => router.push(`/arena/${encodeURIComponent(arena.name)}`)}
-                      className="flex flex-col items-center gap-3 p-4 rounded-2xl border-[1.5px] border-[#B37FEB]/40 bg-white/5 hover:border-[#FF27F0] hover:bg-white/10 transition-all cursor-pointer group">
-                      <div className="w-[60px] h-[60px] rounded-xl overflow-hidden bg-black/30 flex items-center justify-center">
-                        <img src={arena.logo || "/images/logos/default.png"} alt={arena.name} className="w-full h-full object-contain" />
+            {arenas.length > 0 && (
+              <div className="w-full mb-10">
+                <div className="flex items-center justify-end gap-3 mb-4">
+                  <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">الساحات</h3>
+                  <span className="text-[28px]">⚔️</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {arenas.map((arena, i) => (
+                    <div key={i}
+                      className="rounded-2xl p-[1.5px]"
+                      style={{ background: "linear-gradient(135deg, #B37FEB, #29FF64)" }}>
+                      <div className="rounded-2xl px-4 py-4 flex items-center gap-3 justify-end"
+                        style={{ background: "linear-gradient(145deg, #0D0A2E, #0a1628)" }}>
+                        <div className="text-right">
+                          <p className="text-white font-bold text-[15px] font-['Cairo']">{arena.name}</p>
+                          {arena.description && (
+                            <p className="text-white/40 text-[12px] font-['Cairo'] mt-1 line-clamp-1">{arena.description}</p>
+                          )}
+                        </div>
+                        {arena.logo && (
+                          <img src={arena.logo} alt={arena.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                        )}
                       </div>
-                      <p className="text-white text-[13px] font-bold text-center group-hover:text-[#29FF64] transition-colors">
-                        {arena.name}
-                      </p>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="w-full rounded-2xl border-[1.5px] border-dashed border-[#B37FEB]/30 flex flex-col items-center justify-center py-12 gap-3"
-                  style={{ background: "rgba(255,255,255,0.02)" }}>
-                  <span className="text-[48px]">🏟️</span>
-                  <p className="text-white/30 text-[15px] font-['Cairo'] text-center">هذا اللاعب لم ينضم لأي ساحة بعد</p>
-                  <p className="text-white/20 text-[13px] font-['Cairo'] text-center">الميدان ينتظره!</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
-        {/* Back Button */}
         <button onClick={() => router.back()}
-          className="mt-6 px-8 py-3 rounded-full border-[1.4px] border-[#B37FEB] text-white font-[700] text-[16px] hover:bg-[#B37FEB]/20 transition-all active:scale-95">
-          رجوع ←
+          className="mt-4 px-8 py-3 rounded-full border border-[#B37FEB] text-white hover:bg-[#B37FEB]/20 transition-all font-['Cairo'] font-bold">
+          رجوع
         </button>
 
       </div>

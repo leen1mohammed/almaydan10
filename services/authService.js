@@ -4,6 +4,17 @@ import{sendWelcomeEmail} from "../services/EmailService";
 
 // REGISTER
 export const registerUser = async (email, password, userName, fullName) => {
+  const { data: signUpData, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: {
+      username: userName,
+      full_name: fullName,
+      avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${userName}`
+    }
+  }
+});
   // 1. Create auth account
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,

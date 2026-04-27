@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Match, Team } from "@/types/match";
@@ -26,6 +27,14 @@ function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function toSaudiDate(dateString: string) {
+  return new Date(
+    new Date(dateString).toLocaleString("en-US", {
+      timeZone: "Asia/Riyadh",
+    })
+  );
+}
+
 function getDayDiff(target: Date, base: Date) {
   const oneDay = 24 * 60 * 60 * 1000;
   const targetDay = startOfDay(target).getTime();
@@ -34,12 +43,20 @@ function getDayDiff(target: Date, base: Date) {
 }
 
 function getMatchDateLabel(match: Match) {
-  const date = new Date(match.start_at);
-if (!match.start_at || Number.isNaN(date.getTime())) {
-  return "";
-}
+  if (match.status === "LIVE") {
+    return "مباشر الآن";
+  }
 
-  const now = new Date();
+  if (!match.start_at) {
+    return match.status === "FINISHED" ? "مباراة سابقة" : "";
+  }
+
+  const date = toSaudiDate(match.start_at);
+  if (Number.isNaN(date.getTime())) {
+    return match.status === "FINISHED" ? "مباراة سابقة" : "";
+  }
+
+  const now = toSaudiDate(new Date().toISOString());
   const timeLabel = formatArabicTime(date);
   const fullDateLabel = `${formatArabicDate(date)} • ${timeLabel}`;
   const dayDiff = getDayDiff(date, now);
@@ -52,19 +69,19 @@ if (!match.start_at || Number.isNaN(date.getTime())) {
   }
 
   if (match.status === "FINISHED") {
-    if (dayDiff === 0) return `اليوم • ${timeLabel}`;
-    if (dayDiff === -1) return `أمس • ${timeLabel}`;
-    if (dayDiff < -1 && dayDiff >= -7) {
-      return `منذ ${Math.abs(dayDiff)} أيام • ${timeLabel}`;
-    }
-    return fullDateLabel;
+  if (dayDiff === 0) return `أُقيمت اليوم • ${timeLabel}`;
+  if (dayDiff === -1) return `أُقيمت أمس • ${timeLabel}`;
+  return `أُقيمت في ${fullDateLabel}`;
+
   }
 
-  return fullDateLabel;
+ return `${formatArabicDate(date)} - ${timeLabel}`;
 }
 
 export default function MatchCard({ match }: { match: Match }) {
   const [teamA, teamB] = match.teams;
+  const [votes, setVotes] = useState<{ A: number; B: number }>({ A: 0, B: 0 });
+  const [selected, setSelected] = useState<"A" | "B" | null>(null);
 
   const gameAsset = GAME_ASSETS[match.game_type] ?? GAME_ASSETS["default"];
   const matchDateLabel = getMatchDateLabel(match);
@@ -72,6 +89,25 @@ export default function MatchCard({ match }: { match: Match }) {
   const isLive = match.status === "LIVE";
   const isFinished = match.status === "FINISHED";
   const isUpcoming = match.status === "UPCOMING";
+  const hasVotes = votes.A + votes.B > 0;
+
+  function handleVote(team: "A" | "B") {
+    if (!isUpcoming) return;
+
+    setSelected(team);
+
+    setVotes((prev) => {
+      if (team === "A") return { A: prev.A + 1, B: prev.B };
+      return { A: prev.A, B: prev.B + 1 };
+    });
+  }
+
+  function getPercentage(team: "A" | "B") {
+    const hasVotes = votes.A + votes.B > 0;
+    const total = votes.A + votes.B;
+    if (total === 0) return 0;
+    return Math.round((votes[team] / total) * 100);
+  }
 
   return (
     <div
@@ -125,25 +161,35 @@ export default function MatchCard({ match }: { match: Match }) {
 
       <div className="flex flex-col items-center gap-5 px-6 pt-6">
         <div className="grid w-full grid-cols-3 items-center">
-          <TeamBlock team={teamA} align="left" />
+          <div className="flex flex-col items-center">
+  <div onClick={() => handleVote("A")} className={isUpcoming ? "cursor-pointer" : ""}>
+    <TeamBlock
+      team={teamA}
+      align="left"
+      clickable={isUpcoming}
+      selected={selected === "A"}
+    />
+  </div>
 
+  {isUpcoming && (
+    <div className="mt-1 text-xs font-semibold text-white/70">
+      {hasVotes ? `${getPercentage("A")}%` : "—"}
+    </div>
+  )}
+</div>
           <div className="flex flex-col items-center justify-center gap-2">
             {isLive && (
-              <>
-                <Link
-                  href={`/matches/${match.id}/live`}
-                  className="
-                    flex h-[42px] w-[100px] items-center justify-center
-                    rounded-[10px] bg-purple-600
-                    text-sm font-bold text-white
-                    transition hover:bg-purple-500 hover:scale-[1.03]
-                  "
-                >
-                  شاهد البث
-                </Link>
-
-                
-              </>
+              <Link
+                href={`/matches/${match.id}/live`}
+                className="
+                  flex h-[42px] w-[100px] items-center justify-center
+                  rounded-[10px] bg-purple-600
+                  text-sm font-bold text-white
+                  transition hover:bg-purple-500 hover:scale-[1.03]
+                "
+              >
+                شاهد البث
+              </Link>
             )}
 
             {isFinished && (
@@ -171,26 +217,45 @@ export default function MatchCard({ match }: { match: Match }) {
 
             {isUpcoming && (
               <>
-                <div className="rounded-full border border-purple-400/30 bg-white/5 px-4 py-1 text-sm text-white/80">
-                  قريبًا
+                <div className="text-xs text-white/60">
+  توقع الفريق الفائز
+</div>
+
+                <div className="text-xs font-semibold tracking-[0.25em] text-white/55">
+                  VS
                 </div>
-                <div className="text-xs text-white/45">بانتظار البداية</div>
+    
               </>
             )}
           </div>
 
-          <TeamBlock team={teamB} align="right" />
+          <div className="flex flex-col items-center">
+  <div onClick={() => handleVote("B")} className={isUpcoming ? "cursor-pointer" : ""}>
+    <TeamBlock
+      team={teamB}
+      align="right"
+      clickable={isUpcoming}
+      selected={selected === "B"}
+    />
+  </div>
+
+  {isUpcoming && (
+    <div className="mt-1 text-xs font-semibold text-white/70">
+      {hasVotes ? `${getPercentage("B")}%` : "—"}
+    </div>
+  )}
+</div>
         </div>
 
         {matchDateLabel && (
-  <div
-    className={`text-center text-[15px] ${
-      isLive ? "font-bold text-red-400" : "text-white opacity-80"
-    }`}
-  >
-    {matchDateLabel}
-  </div>
-)}
+          <div
+            className={`text-center text-[15px] ${
+              isLive ? "font-bold text-red-400" : "text-white opacity-80"
+            }`}
+          >
+            {matchDateLabel}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -199,9 +264,13 @@ export default function MatchCard({ match }: { match: Match }) {
 function TeamBlock({
   team,
   align,
+  clickable = false,
+  selected = false,
 }: {
   team: Team;
   align: "left" | "right";
+  clickable?: boolean;
+  selected?: boolean;
 }) {
   const hasLogo =
     !!team.logo_url &&
@@ -210,8 +279,14 @@ function TeamBlock({
 
   return (
     <div
-      className={`flex flex-col items-center gap-2 ${
+      className={`flex flex-col items-center gap-2 rounded-[18px] px-2 py-2 transition-all duration-300 ${
         align === "left" ? "justify-self-start" : "justify-self-end"
+      } ${
+        clickable
+  ? "cursor-pointer hover:bg-white/5 hover:scale-[1.05] hover:shadow-[0_0_15px_rgba(41,255,100,0.5)]"
+  : ""
+      } ${
+        selected ? "bg-white/8 ring-1 ring-[#29FF64]/60" : ""
       }`}
     >
       <div className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5">

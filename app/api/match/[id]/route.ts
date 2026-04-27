@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const API_KEY = process.env.PANDASCORE_API_KEY;
 
@@ -28,6 +29,7 @@ type PandaMatch = {
   status?: string | null;
   begin_at?: string | null;
   stream_url?: string | null;
+  official_stream_url?: string | null;
   league?: {
     id?: number;
     name?: string | null;
@@ -114,15 +116,17 @@ export async function GET(
     const results = Array.isArray(raw.results) ? raw.results : [];
     const streams = Array.isArray(raw.streams_list) ? raw.streams_list : [];
 
+    const normalizedStatus = normalizeStatus(raw.status);
+
     const teams = opponents.slice(0, 2).map((o, i) => {
-      const id = o?.opponent?.id;
-      const result = results.find((r) => r.team_id === id);
+      const opponentId = o?.opponent?.id;
+      const result = results.find((r) => r.team_id === opponentId);
 
       return {
-        id: String(id || i),
+        id: String(opponentId || i),
         name: o?.opponent?.name || "TBD",
         logo_url: o?.opponent?.image_url || "",
-        score: typeof result?.score === "number" ? result.score : 0,
+        score: typeof result?.score === "number" ? result.score : null,
       };
     });
 
@@ -131,22 +135,65 @@ export async function GET(
         id: `fallback-${teams.length}`,
         name: "TBD",
         logo_url: "",
-        score: 0,
+        score: null,
       });
     }
 
+    let cachedReplayUrl: string | null = null;
+    let cachedScoreA: number | null = null;
+    let cachedScoreB: number | null = null;
+
+    if (normalizedStatus === "FINISHED") {
+      const { data: cached } = await supabase
+        .from("match_time_cache")
+        .select("replay_url, score_a, score_b")
+        .eq("match_id", String(raw.id))
+        .maybeSingle();
+
+      if (cached) {
+        cachedReplayUrl = cached.replay_url || null;
+        cachedScoreA =
+          typeof cached.score_a === "number" ? cached.score_a : null;
+        cachedScoreB =
+          typeof cached.score_b === "number" ? cached.score_b : null;
+      }
+    }
+
+    const finalReplayUrl =
+      normalizedStatus === "FINISHED"
+        ? cachedReplayUrl ||
+          raw.official_stream_url ||
+          raw.stream_url ||
+          undefined
+        : raw.official_stream_url || raw.stream_url || undefined;
+
+    const finalScoreA =
+      typeof teams[0]?.score === "number" ? teams[0].score : cachedScoreA;
+
+    const finalScoreB =
+      typeof teams[1]?.score === "number" ? teams[1].score : cachedScoreB;
+
     const normalized = {
       id: String(raw.id),
-      status: normalizeStatus(raw.status),
+      status: normalizedStatus,
       game_type: normalizeGameType(raw.videogame?.slug, raw.videogame?.name),
-      start_at: raw.begin_at || new Date().toISOString(),
+      start_at: raw.begin_at || "",
       tournament: {
         id: String(raw.tournament?.id || raw.league?.id || raw.id),
         name: raw.tournament?.name || raw.league?.name || "Tournament",
         logo_url: raw.league?.image_url || undefined,
       },
-      teams: [teams[0], teams[1]],
-      stream_url: raw.stream_url || undefined,
+      teams: [
+        {
+          ...teams[0],
+          score: typeof finalScoreA === "number" ? finalScoreA : -1,
+        },
+        {
+          ...teams[1],
+          score: typeof finalScoreB === "number" ? finalScoreB : -1,
+        },
+      ],
+      stream_url: finalReplayUrl,
       streams_list: streams.map((s) => ({
         raw_url: s.raw_url || undefined,
         embed_url: s.embed_url || undefined,

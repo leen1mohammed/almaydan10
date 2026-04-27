@@ -7,8 +7,20 @@ import { authService } from "@/services/authService";
 
 const db: any = supabase;
 
-type CampRow = { id: number; name: string; description: string; pic?: string; creatorUser: string };
-type CampParticipantRow = { campId: number; pUserName: string };
+type CampRow = {
+  id: number;
+  name: string;
+  description: string;
+  pic?: string | null;
+  creatorUser: string;
+};
+
+type CampParticipantRow = {
+  campId: number;
+  pUserName: string;
+  profilePic?: string | null;
+};
+
 type MessageRow = {
   id: number;
   campId: number;
@@ -16,6 +28,21 @@ type MessageRow = {
   body: string;
   createdAt: string;
   replyToMessageId?: number | null;
+  senderProfilePic?: string | null;
+};
+
+type DialogVariant = "info" | "success" | "error" | "confirm";
+
+type SystemDialogState = {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  variant: DialogVariant;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm?: () => void | Promise<void>;
+  onCancel?: () => void;
+  isLoading?: boolean;
 };
 
 /* ===============================
@@ -40,12 +67,40 @@ function dbgError(label: string, error: any, payload?: any) {
   console.groupEnd();
 }
 
-async function sb<T>(label: string, query: Promise<{ data: T; error: any }>): Promise<{ data: T; error: any }> {
+async function sb<T>(
+  label: string,
+  query: Promise<{ data: T; error: any }>
+): Promise<{ data: T; error: any }> {
   dbg(`${label} (start)`);
   const res = await query;
   if (res.error) dbgError(label, res.error);
   else dbg(`${label} (ok)`, res.data);
   return res;
+}
+
+function getDialogStyles(variant: DialogVariant) {
+  switch (variant) {
+    case "success":
+      return {
+        badge: "bg-green-500/15 text-green-200 border-green-400/30",
+        button: "bg-green-600 hover:bg-green-500",
+      };
+    case "error":
+      return {
+        badge: "bg-red-500/15 text-red-200 border-red-400/30",
+        button: "bg-red-600 hover:bg-red-500",
+      };
+    case "confirm":
+      return {
+        badge: "bg-amber-500/15 text-amber-200 border-amber-400/30",
+        button: "bg-purple-600 hover:bg-purple-500",
+      };
+    default:
+      return {
+        badge: "bg-purple-500/15 text-purple-200 border-purple-400/30",
+        button: "bg-purple-600 hover:bg-purple-500",
+      };
+  }
 }
 
 export default function CampPage() {
@@ -74,13 +129,29 @@ export default function CampPage() {
   // مغادرة المعسكر
   const [isLeavingCamp, setIsLeavingCamp] = useState(false);
 
-  // تعديل وصف المعسكر
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  // تعديل بيانات المعسكر
+  const [isEditingCampInfo, setIsEditingCampInfo] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
-  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [isSavingCampInfo, setIsSavingCampInfo] = useState(false);
+  const [selectedCampImageFile, setSelectedCampImageFile] = useState<File | null>(null);
+  const [campImagePreview, setCampImagePreview] = useState("");
 
+  // نافذة النظام بدل alert / confirm
+  const [systemDialog, setSystemDialog] = useState<SystemDialogState>({
+    isOpen: false,
+    title: "",
+    message: "",
+    variant: "info",
+    confirmText: "حسنًا",
+    cancelText: "إلغاء",
+    isLoading: false,
+  });
+
+  const confirmResolverRef = useRef<((value: boolean) => void) | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
 
   const messagesById = useMemo(() => {
     const m = new Map<number, MessageRow>();
@@ -95,6 +166,68 @@ export default function CampPage() {
   useEffect(() => {
     setEditedDescription(camp?.description || "");
   }, [camp?.description]);
+
+  useEffect(() => {
+    setCampImagePreview(camp?.pic || "");
+    setSelectedCampImageFile(null);
+  }, [camp?.pic]);
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  function openInfoDialog(
+    title: string,
+    message: string,
+    variant: Exclude<DialogVariant, "confirm"> = "info"
+  ) {
+    setSystemDialog({
+      isOpen: true,
+      title,
+      message,
+      variant,
+      confirmText: "حسنًا",
+      cancelText: "إلغاء",
+      isLoading: false,
+    });
+  }
+
+  function closeDialog() {
+    setSystemDialog((prev) => ({
+      ...prev,
+      isOpen: false,
+      onConfirm: undefined,
+      onCancel: undefined,
+      isLoading: false,
+    }));
+  }
+
+  function openConfirmDialog(title: string, message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setSystemDialog({
+        isOpen: true,
+        title,
+        message,
+        variant: "confirm",
+        confirmText: "تأكيد",
+        cancelText: "إلغاء",
+        isLoading: false,
+      });
+    });
+  }
+
+  function resolveConfirm(value: boolean) {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(value);
+      confirmResolverRef.current = null;
+    }
+    closeDialog();
+  }
 
   async function getUserNameOrRedirect() {
     dbg("getUserNameOrRedirect()");
@@ -138,12 +271,17 @@ export default function CampPage() {
   async function assertMembershipOrRedirect(cId: number, userName: string) {
     const { data: membership, error: membershipError } = await sb(
       "CampParticipants: membership check",
-      db.from("CampParticipants").select("campId,pUserName").eq("campId", cId).eq("pUserName", userName).maybeSingle()
+      db
+        .from("CampParticipants")
+        .select("campId,pUserName")
+        .eq("campId", cId)
+        .eq("pUserName", userName)
+        .maybeSingle()
     );
 
     if (membershipError || !membership) {
       dbg("Not member -> redirect /camp", { cId, userName });
-      alert("لا تملك صلاحية الوصول إلى هذا المعسكر.");
+      openInfoDialog("غير مسموح", "لا تملك صلاحية الوصول إلى هذا المعسكر.", "error");
       router.push("/camp");
       return false;
     }
@@ -152,50 +290,180 @@ export default function CampPage() {
     return true;
   }
 
+  async function enrichMembersWithProfilePictures(
+    rawMembers: Array<{ campId: number; pUserName: string }>
+  ): Promise<CampParticipantRow[]> {
+    if (!rawMembers.length) return [];
+
+    const usernames = rawMembers.map((m) => m.pUserName);
+
+    const { data: profiles, error: profilesError } = await sb(
+      "Profile: fetch profile pictures for members",
+      db.from("Profile").select("pruserName,profilePic").in("pruserName", usernames)
+    );
+
+    if (profilesError) {
+      return rawMembers.map((m) => ({
+        campId: m.campId,
+        pUserName: m.pUserName,
+        profilePic: null,
+      }));
+    }
+
+    const profileMap = new Map<string, string | null>();
+    for (const p of (profiles as any[]) || []) {
+      profileMap.set(p.pruserName, p.profilePic || null);
+    }
+
+    return rawMembers.map((m) => ({
+      campId: m.campId,
+      pUserName: m.pUserName,
+      profilePic: profileMap.get(m.pUserName) || null,
+    }));
+  }
+
+  async function enrichMessagesWithSenderPictures(
+    rawMessages: MessageRow[]
+  ): Promise<MessageRow[]> {
+    if (!rawMessages.length) return [];
+
+    const usernames = Array.from(new Set(rawMessages.map((m) => m.senderUser)));
+
+    const { data: profiles, error: profilesError } = await sb(
+      "Profile: fetch sender pictures for messages",
+      db.from("Profile").select("pruserName,profilePic").in("pruserName", usernames)
+    );
+
+    if (profilesError) {
+      return rawMessages.map((msg) => ({
+        ...msg,
+        senderProfilePic: null,
+      }));
+    }
+
+    const profileMap = new Map<string, string | null>();
+    for (const p of (profiles as any[]) || []) {
+      profileMap.set(p.pruserName, p.profilePic || null);
+    }
+
+    return rawMessages.map((msg) => ({
+      ...msg,
+      senderProfilePic: profileMap.get(msg.senderUser) || null,
+    }));
+  }
+
   async function refreshMembers(targetCampId: number) {
     const { data: membersData } = await sb(
       "CampParticipants: refresh members",
       db.from("CampParticipants").select("campId,pUserName").eq("campId", targetCampId)
     );
 
-    setMembers(((membersData as any) || []) as CampParticipantRow[]);
+    const rawMembers: Array<{ campId: number; pUserName: string }> =
+      (membersData ?? []) as Array<{ campId: number; pUserName: string }>;
+
+    const enrichedMembers = await enrichMembersWithProfilePictures(rawMembers);
+
+    setMembers(enrichedMembers);
   }
 
-  async function handleSaveDescription() {
-    if (!campId || !isOwner) return;
+  function handleChooseCampImage(file: File | null) {
+    if (!file) return;
 
-    setIsSavingDescription(true);
-    dbg("handleSaveDescription() start", { campId, editedDescription });
+    if (!file.type.startsWith("image/")) {
+      openInfoDialog("ملف غير صالح", "الملف المختار ليس صورة.", "error");
+      return;
+    }
+
+    const maxSizeInMb = 5;
+    if (file.size > maxSizeInMb * 1024 * 1024) {
+      openInfoDialog("حجم كبير", "حجم الصورة كبير. الحد الأقصى 5MB.", "error");
+      return;
+    }
+
+    setSelectedCampImageFile(file);
+
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = previewUrl;
+    setCampImagePreview(previewUrl);
+  }
+
+  async function uploadCampImage(file: File, targetCampId: number) {
+    const fileExt = file.name.split(".").pop() || "png";
+    const fileName = `camp-${targetCampId}-${Date.now()}.${fileExt}`;
+    const filePath = `camp-covers/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("camp-images")
+      .upload(filePath, file, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      dbgError("uploadCampImage() upload failed", uploadError);
+      throw new Error("UPLOAD_FAILED");
+    }
+
+    const { data } = supabase.storage.from("camp-images").getPublicUrl(filePath);
+    return data.publicUrl;
+  }
+
+  async function handleSaveCampInfo() {
+    if (!campId || !isOwner || !camp) return;
+
+    setIsSavingCampInfo(true);
+    dbg("handleSaveCampInfo() start", {
+      campId,
+      editedDescription,
+      hasNewImage: Boolean(selectedCampImageFile),
+    });
 
     try {
-      const newDescription = editedDescription.trim();
+      const updates: Record<string, any> = {
+        description: editedDescription.trim(),
+      };
+
+      if (selectedCampImageFile) {
+        const uploadedImageUrl = await uploadCampImage(selectedCampImageFile, campId);
+        updates.pic = uploadedImageUrl;
+      }
 
       const { error } = await sb(
-        "Camp: update description",
-        db.from("Camp").update({ description: newDescription }).eq("id", campId)
+        "Camp: update camp info",
+        db.from("Camp").update(updates).eq("id", campId)
       );
 
       if (error) {
-        alert("تعذر حفظ وصف المعسكر.");
+        openInfoDialog("تعذر الحفظ", "تعذر حفظ بيانات المعسكر.", "error");
         return;
+      }
+
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = null;
       }
 
       setCamp((prev) =>
         prev
           ? {
               ...prev,
-              description: newDescription,
+              description: updates.description,
+              pic: updates.pic ?? prev.pic,
             }
           : prev
       );
 
-      setIsEditingDescription(false);
-      alert("تم تحديث وصف المعسكر بنجاح.");
+      setIsEditingCampInfo(false);
+      setSelectedCampImageFile(null);
+      openInfoDialog("تم الحفظ", "تم تحديث بيانات المعسكر بنجاح.", "success");
     } catch (e) {
-      dbgError("handleSaveDescription() unexpected error", e);
-      alert("حدثت مشكلة أثناء حفظ الوصف.");
+      dbgError("handleSaveCampInfo() unexpected error", e);
+      openInfoDialog("خطأ", "حدثت مشكلة أثناء حفظ بيانات المعسكر.", "error");
     } finally {
-      setIsSavingDescription(false);
+      setIsSavingCampInfo(false);
     }
   }
 
@@ -223,7 +491,7 @@ export default function CampPage() {
         );
 
         if (campError || !campData) {
-          alert("تعذر تحميل بيانات المعسكر.");
+          openInfoDialog("تعذر التحميل", "تعذر تحميل بيانات المعسكر.", "error");
           router.push("/camp");
           return;
         }
@@ -233,29 +501,33 @@ export default function CampPage() {
           db.from("CampParticipants").select("campId,pUserName").eq("campId", campId)
         );
 
+        const rawMembers: Array<{ campId: number; pUserName: string }> =
+          (membersData ?? []) as Array<{ campId: number; pUserName: string }>;
+        const enrichedMembers = await enrichMembersWithProfilePictures(rawMembers);
+
         const { data: messagesData } = await sb(
           "Messages: fetch messages",
-          db
-            .from("Messages")
-            .select("*")
-            .eq("campId", campId)
-            .order("createdAt", { ascending: true })
+          db.from("Messages").select("*").eq("campId", campId).order("createdAt", { ascending: true })
+        );
+
+        const enrichedMessages = await enrichMessagesWithSenderPictures(
+          ((messagesData ?? []) as MessageRow[])
         );
 
         if (!alive) return;
 
         setCamp(campData as CampRow);
-        setMembers(((membersData as any) || []) as CampParticipantRow[]);
-        setMessages(((messagesData as any) || []) as MessageRow[]);
+        setMembers(enrichedMembers);
+        setMessages(enrichedMessages);
 
         dbg("CampPage state updated", {
           campLoaded: Boolean(campData),
-          membersCount: (membersData as any)?.length ?? 0,
-          messagesCount: (messagesData as any)?.length ?? 0,
+          membersCount: enrichedMembers.length,
+          messagesCount: enrichedMessages.length,
         });
       } catch (e) {
         dbgError("CampPage fetchData() unexpected error", e);
-        alert("حدثت مشكلة أثناء تحميل المعسكر.");
+        openInfoDialog("خطأ", "حدثت مشكلة أثناء تحميل المعسكر.", "error");
         router.push("/camp");
       }
     };
@@ -283,16 +555,26 @@ export default function CampPage() {
           table: "Messages",
           filter: `campId=eq.${campId}`,
         },
-        (payload) => {
+        async (payload) => {
           dbg("Realtime INSERT payload", payload?.new);
           const row = payload.new as MessageRow;
 
+          const { data: profileData } = await sb(
+            "Profile: fetch sender picture for realtime message",
+            db.from("Profile").select("pruserName,profilePic").eq("pruserName", row.senderUser).maybeSingle()
+          );
+
+          const enrichedRow: MessageRow = {
+            ...row,
+            senderProfilePic: (profileData as any)?.profilePic || null,
+          };
+
           setMessages((prev) => {
-            if (prev.some((x) => x.id === row.id)) {
-              dbg("Realtime duplicate ignored", { id: row.id });
+            if (prev.some((x) => x.id === enrichedRow.id)) {
+              dbg("Realtime duplicate ignored", { id: enrichedRow.id });
               return prev;
             }
-            return [...prev, row];
+            return [...prev, enrichedRow];
           });
         }
       )
@@ -322,7 +604,11 @@ export default function CampPage() {
     const body = newMessage.trim();
     if (!body) return;
 
-    dbg("handleSendMessage() start", { campId, bodyLen: body.length, replyToId: replyTo?.id ?? null });
+    dbg("handleSendMessage() start", {
+      campId,
+      bodyLen: body.length,
+      replyToId: replyTo?.id ?? null,
+    });
 
     try {
       const senderUser = await getUserNameOrRedirect();
@@ -342,11 +628,10 @@ export default function CampPage() {
       const { error } = await sb("Messages: insert message", db.from("Messages").insert([payload]));
       if (error) {
         dbgError("Messages insert FAILED", error, payload);
-        alert("تعذر إرسال الرسالة. شوفي الكونسول للتفاصيل.");
+        openInfoDialog("تعذر الإرسال", "تعذر إرسال الرسالة.", "error");
         return;
       }
 
-      dbg("Message sent OK", payload);
       setNewMessage("");
       setReplyTo(null);
 
@@ -355,7 +640,7 @@ export default function CampPage() {
       }
     } catch (e) {
       dbgError("handleSendMessage() unexpected error", e);
-      alert("تعذر إرسال الرسالة.");
+      openInfoDialog("خطأ", "تعذر إرسال الرسالة.", "error");
     }
   }
 
@@ -364,12 +649,12 @@ export default function CampPage() {
 
     const targetUserName = newParticipantUserName.trim();
     if (!targetUserName) {
-      alert("اكتبي اسم المستخدم أولًا.");
+      openInfoDialog("بيانات ناقصة", "اكتبي اسم المستخدم أولًا.", "error");
       return;
     }
 
     if (!isOwner) {
-      alert("فقط مالك المعسكر يمكنه إضافة المشاركين.");
+      openInfoDialog("غير مسموح", "فقط مالك المعسكر يمكنه إضافة المشاركين.", "error");
       return;
     }
 
@@ -378,7 +663,7 @@ export default function CampPage() {
 
     try {
       if (targetUserName.toLowerCase() === currentUserName.toLowerCase()) {
-        alert("أنتِ موجودة أصلًا داخل المعسكر.");
+        openInfoDialog("تنبيه", "أنتِ موجودة أصلًا داخل المعسكر.", "info");
         return;
       }
 
@@ -388,12 +673,12 @@ export default function CampPage() {
       );
 
       if (participantError) {
-        alert("تعذر التحقق من المستخدم.");
+        openInfoDialog("تعذر التحقق", "تعذر التحقق من المستخدم.", "error");
         return;
       }
 
       if (!participantRow) {
-        alert("هذا المستخدم غير موجود ضمن حسابات المشاركين.");
+        openInfoDialog("غير موجود", "هذا المستخدم غير موجود ضمن حسابات المشاركين.", "error");
         return;
       }
 
@@ -408,12 +693,12 @@ export default function CampPage() {
       );
 
       if (existingInThisCampError) {
-        alert("تعذر التحقق من عضوية المستخدم داخل هذا المعسكر.");
+        openInfoDialog("تعذر التحقق", "تعذر التحقق من عضوية المستخدم داخل هذا المعسكر.", "error");
         return;
       }
 
       if (existingInThisCamp) {
-        alert("هذا المستخدم موجود بالفعل في المعسكر.");
+        openInfoDialog("موجود مسبقًا", "هذا المستخدم موجود بالفعل في المعسكر.", "info");
         return;
       }
 
@@ -423,13 +708,15 @@ export default function CampPage() {
       );
 
       if (existingMembershipError) {
-        alert("تعذر التحقق من معسكرات المستخدم.");
+        openInfoDialog("تعذر التحقق", "تعذر التحقق من معسكرات المستخدم.", "error");
         return;
       }
 
-      const alreadyHasCamp = Array.isArray(existingMembershipRows) && existingMembershipRows.length > 0;
+      const alreadyHasCamp =
+        Array.isArray(existingMembershipRows) && existingMembershipRows.length > 0;
+
       if (alreadyHasCamp) {
-        alert("هذا المستخدم لديه معسكر بالفعل ولا يمكن إضافته.");
+        openInfoDialog("غير ممكن", "هذا المستخدم لديه معسكر بالفعل ولا يمكن إضافته.", "error");
         return;
       }
 
@@ -445,17 +732,17 @@ export default function CampPage() {
       );
 
       if (insertError) {
-        alert("تعذر إضافة المشارك.");
+        openInfoDialog("تعذر الإضافة", "تعذر إضافة المشارك.", "error");
         return;
       }
 
       setNewParticipantUserName("");
       await refreshMembers(campId);
       setIsMembersOpen(true);
-      alert("تمت إضافة المشارك بنجاح.");
+      openInfoDialog("تمت الإضافة", "تمت إضافة المشارك بنجاح.", "success");
     } catch (e) {
       dbgError("handleAddParticipant() unexpected error", e);
-      alert("حدثت مشكلة أثناء إضافة المشارك.");
+      openInfoDialog("خطأ", "حدثت مشكلة أثناء إضافة المشارك.", "error");
     } finally {
       setIsAddingParticipant(false);
     }
@@ -464,48 +751,55 @@ export default function CampPage() {
   async function handleLeaveCamp() {
     if (!campId || !currentUserName) return;
 
-    const confirmed = window.confirm(
+    const confirmed = await openConfirmDialog(
+      "تأكيد المغادرة",
       isOwner
-        ? "هل أنت متأكد من مغادرة المعسكر؟ إذا بقي أعضاء فسيتم نقل الملكية، وإذا كنت آخر عضو فسيتم حذف المعسكر بالكامل."
-        : "هل أنت متأكد من مغادرة المعسكر؟"
+        ? "هل أنتِ متأكدة من مغادرة المعسكر؟ إذا بقي أعضاء فسيتم نقل الملكية، وإذا كنتِ آخر عضو فسيتم حذف المعسكر بالكامل."
+        : "هل أنتِ متأكدة من مغادرة المعسكر؟"
     );
+
     if (!confirmed) return;
 
     setIsLeavingCamp(true);
     dbg("handleLeaveCamp() start", { campId, currentUserName, isOwner });
 
     try {
+      // حذف العضو الخارج من CampParticipants مباشرة
       const { error: deleteMembershipError } = await sb(
         "CampParticipants: delete current user membership",
         db.from("CampParticipants").delete().eq("campId", campId).eq("pUserName", currentUserName)
       );
 
       if (deleteMembershipError) {
-        alert("تعذر مغادرة المعسكر.");
+        openInfoDialog("تعذر المغادرة", "تعذر مغادرة المعسكر.", "error");
         return;
       }
 
-      const { data: remainingMembers, error: remainingMembersError } = await sb(
+      // تحديث القائمة فورًا محليًا
+      setMembers((prev) => prev.filter((m) => m.pUserName !== currentUserName));
+
+      const { data: remainingMembersData, error: remainingMembersError } = await sb(
         "CampParticipants: fetch remaining members after leave",
         db.from("CampParticipants").select("campId,pUserName").eq("campId", campId)
       );
 
       if (remainingMembersError) {
-        alert("تمت المغادرة لكن تعذر التحقق من حالة المعسكر.");
+        openInfoDialog("تنبيه", "تمت المغادرة لكن تعذر التحقق من حالة المعسكر.", "error");
         router.push("/camp");
         return;
       }
 
-      const remaining = ((remainingMembers as any) || []) as CampParticipantRow[];
+      const remainingRaw: Array<{ campId: number; pUserName: string }> =
+        (remainingMembersData ?? []) as Array<{ campId: number; pUserName: string }>;
 
-      if (remaining.length === 0) {
+      if (remainingRaw.length === 0) {
         const { error: deleteMessagesError } = await sb(
           "Messages: delete all camp messages",
           db.from("Messages").delete().eq("campId", campId)
         );
 
         if (deleteMessagesError) {
-          alert("تمت المغادرة لكن تعذر حذف رسائل المعسكر.");
+          openInfoDialog("تنبيه", "تمت المغادرة لكن تعذر حذف رسائل المعسكر.", "error");
           router.push("/camp");
           return;
         }
@@ -516,7 +810,7 @@ export default function CampPage() {
         );
 
         if (cleanupParticipantsError) {
-          alert("تمت المغادرة لكن تعذر تنظيف أعضاء المعسكر.");
+          openInfoDialog("تنبيه", "تمت المغادرة لكن تعذر تنظيف أعضاء المعسكر.", "error");
           router.push("/camp");
           return;
         }
@@ -527,18 +821,22 @@ export default function CampPage() {
         );
 
         if (deleteCampError) {
-          alert("تمت المغادرة لكن تعذر حذف المعسكر الفارغ.");
+          openInfoDialog("تنبيه", "تمت المغادرة لكن تعذر حذف المعسكر الفارغ.", "error");
           router.push("/camp");
           return;
         }
 
-        alert("تمت مغادرة المعسكر، وبما أنه لم يبق أي عضو فقد تم حذف المعسكر.");
+        openInfoDialog(
+          "تمت المغادرة",
+          "تمت مغادرة المعسكر، وبما أنه لم يبق أي عضو فقد تم حذف المعسكر.",
+          "success"
+        );
         router.push("/camp");
         return;
       }
 
       if (isOwner) {
-        const newOwner = remaining[0]?.pUserName ?? null;
+        const newOwner = remainingRaw[0]?.pUserName ?? null;
 
         if (newOwner) {
           const { error: updateOwnerError } = await sb(
@@ -547,18 +845,18 @@ export default function CampPage() {
           );
 
           if (updateOwnerError) {
-            alert("تمت المغادرة لكن تعذر نقل ملكية المعسكر.");
+            openInfoDialog("تنبيه", "تمت المغادرة لكن تعذر نقل ملكية المعسكر.", "error");
             router.push("/camp");
             return;
           }
         }
       }
 
-      alert("تمت مغادرة المعسكر بنجاح.");
+      openInfoDialog("تمت المغادرة", "تمت مغادرة المعسكر بنجاح.", "success");
       router.push("/camp");
     } catch (e) {
       dbgError("handleLeaveCamp() unexpected error", e);
-      alert("حدثت مشكلة أثناء مغادرة المعسكر.");
+      openInfoDialog("خطأ", "حدثت مشكلة أثناء مغادرة المعسكر.", "error");
     } finally {
       setIsLeavingCamp(false);
     }
@@ -571,278 +869,375 @@ export default function CampPage() {
     }
   }
 
+  const dialogStyles = getDialogStyles(systemDialog.variant);
+
   return (
-    <div className="min-h-screen bg-[#0a0614] text-white px-4 py-6 md:px-8">
-      <div className="mx-auto flex w-full max-w-[96vw] flex-col gap-4">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-[#081126] px-4 py-6 md:px-8 md:py-8">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-8 left-10 h-36 w-36 rounded-full bg-fuchsia-500/10 blur-3xl" />
-            <div className="absolute bottom-0 right-10 h-40 w-40 rounded-full bg-green-400/10 blur-3xl" />
-          </div>
+    <div dir="rtl" className="min-h-screen bg-[#0a0614] text-white">
+      <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 sm:gap-5">
+          {/* Header */}
+          <div className="relative overflow-hidden rounded-[24px] border border-purple-500/30 bg-[#081126] px-4 py-5 sm:rounded-[28px] sm:px-5 sm:py-6 md:px-8 md:py-8">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute right-4 top-4 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-3xl sm:right-10 sm:top-8 sm:h-36 sm:w-36" />
+              <div className="absolute bottom-0 left-4 h-28 w-28 rounded-full bg-green-400/10 blur-3xl sm:left-10 sm:h-40 sm:w-40" />
+            </div>
 
-          <div className="relative z-10 mb-6 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="text-sm text-green-300 transition hover:text-green-200"
-            >
-              السابق
-            </button>
+            <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-3">
+              {currentUserName && (
+                <button
+                  type="button"
+                  onClick={handleLeaveCamp}
+                  disabled={isLeavingCamp}
+                  className="w-[120px] py-1 border border-[#FF27F0] text-white rounded-full font-bold text-sm font-['Cairo']"
+                >
+                  {isLeavingCamp ? "جاري المغادرة..." : "مغادرة"}
+                </button>
+              )}
 
-            {currentUserName && (
               <button
                 type="button"
-                onClick={handleLeaveCamp}
-                disabled={isLeavingCamp}
-                className="rounded-2xl border border-purple-400/50 bg-[#22103f] px-5 py-2 text-sm text-white shadow-[0_0_20px_rgba(168,85,247,0.18)] transition hover:bg-[#2b1450] disabled:opacity-60"
+                onClick={() => router.back()}
+                className="text-xs text-green-300 transition hover:text-green-200 sm:text-sm"
               >
-                {isLeavingCamp ? "جاري المغادرة..." : "مغادرة"}
+                السابق
               </button>
-            )}
-          </div>
+            </div>
 
-          <div className="relative z-10 flex flex-col items-center text-center">
-            {camp?.pic ? (
-              <img
-                src={camp.pic}
-                alt={camp.name}
-                className="mb-4 h-24 w-24 rounded-full border border-purple-400/50 object-cover shadow-[0_0_25px_rgba(168,85,247,0.22)] md:h-28 md:w-28"
-              />
-            ) : (
-              <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-purple-400/40 bg-[#140d25] text-2xl font-bold text-purple-200 shadow-[0_0_25px_rgba(168,85,247,0.18)] md:h-28 md:w-28">
-                {camp?.name?.charAt(0) || "م"}
-              </div>
-            )}
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="relative mb-4">
+                {campImagePreview || camp?.pic ? (
+                  <img
+                    src={campImagePreview || camp?.pic || ""}
+                    alt={camp?.name || "camp"}
+                    className="h-20 w-20 rounded-full border border-purple-400/50 object-cover shadow-[0_0_25px_rgba(168,85,247,0.22)] sm:h-24 sm:w-24 md:h-28 md:w-28"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border border-purple-400/40 bg-[#140d25] text-xl font-bold text-purple-200 shadow-[0_0_25px_rgba(168,85,247,0.18)] sm:h-24 sm:w-24 md:h-28 md:w-28 md:text-2xl">
+                    {camp?.name?.charAt(0) || "م"}
+                  </div>
+                )}
 
-            <h1 className="text-2xl font-bold text-white md:text-4xl">
-              {camp?.name}
-            </h1>
-
-            {!!camp?.description && !isEditingDescription && (
-              <div className="mt-3 flex items-center gap-2">
-                <p className="max-w-2xl text-sm text-gray-300 md:text-base">
-                  {camp.description}
-                </p>
-
-                {isOwner && (
+                {isOwner && isEditingCampInfo && (
                   <button
                     type="button"
-                    onClick={() => setIsEditingDescription(true)}
-                    className="shrink-0 transition hover:opacity-80"
-                    title="تعديل وصف المعسكر"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-purple-300/40 bg-[#1e1236] px-3 py-1.5 text-[11px] text-purple-100 shadow-[0_0_18px_rgba(168,85,247,0.20)] transition hover:bg-[#2a184a] sm:text-xs"
+                  >
+                    تغيير الصورة
+                  </button>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleChooseCampImage(e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div className="flex max-w-full items-center justify-center gap-2">
+                <h1 className="break-words text-xl font-bold text-white sm:text-2xl md:text-4xl">
+                  {camp?.name}
+                </h1>
+
+                {isOwner && !isEditingCampInfo && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingCampInfo(true)}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-400/40 bg-white/5 transition hover:bg-white/10 sm:h-10 sm:w-10"
+                    title="تعديل بيانات المعسكر"
                   >
                     <img
                       src="/images/icons/edit-icon3.png"
                       alt="edit"
-                      className="h-5 w-5 object-contain"
+                      className="h-5 w-5 object-contain sm:h-6 sm:w-6"
                     />
                   </button>
                 )}
               </div>
-            )}
 
-            {!camp?.description && isOwner && !isEditingDescription && (
-              <button
-                type="button"
-                onClick={() => setIsEditingDescription(true)}
-                className="mt-3 flex items-center gap-2 rounded-2xl border border-purple-400/40 bg-white/5 px-4 py-2 text-sm text-purple-100 transition hover:bg-white/10"
-              >
-                <img
-                  src="/images/icons/edit-icon3.png"
-                  alt="edit"
-                  className="h-4 w-4 object-contain"
-                />
-                أضف وصفًا للمعسكر
-              </button>
-            )}
+              {!isEditingCampInfo &&
+                (!!camp?.description ? (
+                  <p className="mt-3 max-w-3xl px-2 text-sm leading-7 text-gray-300 sm:text-base">
+                    {camp.description}
+                  </p>
+                ) : (
+                  <p className="mt-3 max-w-3xl px-2 text-sm leading-7 text-gray-400 sm:text-base">
+                    لا يوجد وصف للمعسكر حاليًا.
+                  </p>
+                ))}
 
-            {isEditingDescription && isOwner && (
-              <div className="mt-4 w-full max-w-2xl">
-                <textarea
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  rows={4}
-                  placeholder="اكتب وصف المعسكر هنا..."
-                  className="w-full resize-none rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-sm text-white outline-none placeholder:text-gray-400"
-                />
-
-                <div className="mt-3 flex justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveDescription}
-                    disabled={isSavingDescription}
-                    className="rounded-2xl bg-purple-600 px-4 py-2 text-sm text-white transition hover:bg-purple-500 disabled:opacity-60"
-                  >
-                    {isSavingDescription ? "جاري الحفظ..." : "حفظ"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditedDescription(camp?.description || "");
-                      setIsEditingDescription(false);
-                    }}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition hover:bg-white/10"
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Members accordion */}
-        <div className="rounded-2xl border border-purple-500/40 bg-white/5 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setIsMembersOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between px-4 py-4 text-right transition hover:bg-white/5"
-          >
-            <div>
-              <div className="text-base md:text-lg font-semibold">أعضاء المعسكر</div>
-              <div className="text-sm text-gray-400">{members.length} عضو</div>
-            </div>
-            <span className="text-sm text-purple-200">
-              {isMembersOpen ? "إخفاء" : "إظهار"}
-            </span>
-          </button>
-
-          {isMembersOpen && (
-            <div className="border-t border-white/10 px-4 py-3">
-              {isOwner && (
-                <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-3">
-                  <div className="mb-3 text-sm font-medium text-purple-100">
-                    إضافة مشارك جديد
+              {isEditingCampInfo && isOwner && (
+                <div className="mt-5 w-full max-w-2xl rounded-3xl border border-purple-500/30 bg-[#10091d]/80 p-3 text-right shadow-[0_0_30px_rgba(168,85,247,0.10)] backdrop-blur-sm sm:p-4">
+                  <div className="mb-3 text-sm font-semibold text-purple-100">
+                    تعديل بيانات المعسكر
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      type="text"
-                      value={newParticipantUserName}
-                      onChange={(e) => setNewParticipantUserName(e.target.value)}
-                      placeholder="اسم المستخدم للمشارك..."
-                      className="flex-1 rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-sm outline-none placeholder:text-gray-400"
+                  <div className="mb-4">
+                    <label className="mb-2 block text-sm text-gray-300">
+                      وصف المعسكر
+                    </label>
+                    <textarea
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      rows={4}
+                      placeholder="اكتب وصف المعسكر هنا..."
+                      className="w-full resize-none rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-right text-sm text-white outline-none placeholder:text-gray-400"
                     />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap justify-start gap-2">
                     <button
                       type="button"
-                      onClick={handleAddParticipant}
-                      disabled={isAddingParticipant}
-                      className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-medium transition hover:bg-purple-500 disabled:opacity-60"
+                      onClick={handleSaveCampInfo}
+                      disabled={isSavingCampInfo}
+                      className="rounded-2xl bg-purple-600 px-4 py-2 text-sm text-white transition hover:bg-purple-500 disabled:opacity-60"
                     >
-                      {isAddingParticipant ? "جاري الإضافة..." : "إضافة"}
+                      {isSavingCampInfo ? "جاري الحفظ..." : "حفظ التعديلات"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (previewObjectUrlRef.current) {
+                          URL.revokeObjectURL(previewObjectUrlRef.current);
+                          previewObjectUrlRef.current = null;
+                        }
+                        setEditedDescription(camp?.description || "");
+                        setCampImagePreview(camp?.pic || "");
+                        setSelectedCampImageFile(null);
+                        setIsEditingCampInfo(false);
+                      }}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition hover:bg-white/10"
+                    >
+                      إلغاء
                     </button>
                   </div>
                 </div>
               )}
-
-              {members.length === 0 ? (
-                <p className="text-sm text-gray-400">لا يوجد أعضاء حاليًا.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {members.map((m) => {
-                    const memberIsOwner = camp?.creatorUser === m.pUserName;
-
-                    return (
-                      <li
-                        key={m.pUserName}
-                        className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2"
-                      >
-                        <span className="text-purple-100">{m.pUserName}</span>
-                        {memberIsOwner && (
-                          <span className="rounded-full border border-pink-400/40 bg-pink-500/10 px-2 py-1 text-xs text-pink-200">
-                            القائد
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Chat area */}
-        <div className="rounded-2xl border border-purple-500/40 bg-white/5 p-3 md:p-4">
-          <div className="mb-4 h-[430px] overflow-y-auto rounded-2xl bg-black/15 p-3 md:p-4">
+          {/* Members accordion */}
+          <div className="overflow-hidden rounded-[22px] border border-purple-500/40 bg-white/5">
+            <button
+              type="button"
+              onClick={() => setIsMembersOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-3 px-4 py-4 text-right transition hover:bg-white/5 sm:px-5"
+            >
+              <div className="text-right">
+                <div className="text-sm font-semibold sm:text-base md:text-lg">أعضاء المعسكر</div>
+                <div className="text-xs text-gray-400 sm:text-sm">{members.length} عضو</div>
+              </div>
+              <span className="shrink-0 text-xs text-purple-200 sm:text-sm">
+                {isMembersOpen ? "إخفاء" : "إظهار"}
+              </span>
+            </button>
+
+            {isMembersOpen && (
+              <div className="border-t border-white/10 px-4 py-3 sm:px-5">
+                {isOwner && (
+                  <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <div className="mb-3 text-right text-sm font-medium text-purple-100">
+                      إضافة مشارك جديد
+                    </div>
+
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                      <button
+                        type="button"
+                        onClick={handleAddParticipant}
+                        disabled={isAddingParticipant}
+                        className="rounded-2xl bg-purple-600 px-4 py-3 text-sm font-medium transition hover:bg-purple-500 disabled:opacity-60 md:order-1"
+                      >
+                        {isAddingParticipant ? "جاري الإضافة..." : "إضافة"}
+                      </button>
+
+                      <input
+                        type="text"
+                        value={newParticipantUserName}
+                        onChange={(e) => setNewParticipantUserName(e.target.value)}
+                        placeholder="اسم المستخدم للمشارك..."
+                        className="flex-1 rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-right text-sm outline-none placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {members.length === 0 ? (
+                  <p className="text-right text-sm text-gray-400">لا يوجد أعضاء حاليًا.</p>
+                ) : (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {members.map((m) => {
+                      const memberIsOwner = camp?.creatorUser === m.pUserName;
+
+                      return (
+                        <li
+                          key={m.pUserName}
+                          className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-3"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            {m.profilePic ? (
+                              <img
+                                src={m.profilePic}
+                                alt={m.pUserName}
+                                className="h-11 w-11 shrink-0 rounded-full border border-purple-400/40 object-cover sm:h-12 sm:w-12"
+                              />
+                            ) : (
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-purple-400/40 bg-[#1a1230] text-sm font-bold text-purple-200 sm:h-12 sm:w-12">
+                                {m.pUserName?.charAt(0)?.toUpperCase() || "م"}
+                              </div>
+                            )}
+
+                            <div className="min-w-0 text-right">
+                              <div className="truncate text-sm text-purple-100 sm:text-[15px]">
+                                {m.pUserName}
+                              </div>
+                              {memberIsOwner && (
+                                <div className="mt-1 text-[11px] text-pink-200 sm:text-xs">
+                                  قائد المعسكر
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {memberIsOwner && (
+                            <span className="shrink-0 rounded-full border border-pink-400/40 bg-pink-500/10 px-2 py-1 text-[10px] text-pink-200 sm:text-xs">
+                              القائد
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Chat messages */}
+          <div className="relative pb-[165px] sm:pb-[180px] md:pb-[200px]">
             {messages.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+              <div className="flex min-h-[320px] items-center justify-center text-sm text-gray-400 sm:min-h-[420px]">
                 لا توجد رسائل بعد.
               </div>
             ) : (
-              <div className="space-y-3">
-                {messages.map((msg) => {
-                  const replied = msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : null;
+              <div className="space-y-1.5 sm:space-y-2">
+                {messages.map((msg, index) => {
+                  const replied = msg.replyToMessageId
+                    ? messagesById.get(msg.replyToMessageId)
+                    : null;
+
                   const isMine = currentUserName === msg.senderUser;
+
+                  const prevMsg = index > 0 ? messages[index - 1] : null;
+                  const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+
+                  const isSameSenderAsPrev = prevMsg?.senderUser === msg.senderUser;
+                  const isSameSenderAsNext = nextMsg?.senderUser === msg.senderUser;
+
+                  const showAvatar = !isSameSenderAsNext;
 
                   return (
                     <div
                       key={msg.id}
-                      className={`flex w-full ${isMine ? "justify-end" : "justify-start"}`}
+                      className={`flex w-full ${isMine ? "justify-start" : "justify-end"} ${
+                        isSameSenderAsPrev ? "mt-1" : "mt-3"
+                      }`}
                     >
                       <div
-                        className={`max-w-[82%] sm:max-w-[75%] md:max-w-[68%] rounded-2xl px-4 py-3 shadow-sm ${
-                          isMine
-                            ? "bg-[#B794F6] text-white rounded-br-md"
-                            : "bg-[#1b1330] text-white border border-white/10 rounded-bl-md"
+                        className={`flex max-w-[94%] items-end gap-2 sm:max-w-[80%] lg:max-w-[66%] ${
+                          isMine ? "flex-row" : "flex-row-reverse"
                         }`}
-                        style={{ width: "fit-content", minWidth: "120px" }}
                       >
+                        <div className="w-9 shrink-0 sm:w-10">
+                          {showAvatar ? (
+                            msg.senderProfilePic ? (
+                              <img
+                                src={msg.senderProfilePic}
+                                alt={msg.senderUser}
+                                className="h-9 w-9 rounded-full border border-purple-400/40 object-cover sm:h-10 sm:w-10"
+                              />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-purple-400/40 bg-[#1a1230] text-xs font-bold text-purple-200 sm:h-10 sm:w-10">
+                                {msg.senderUser?.charAt(0)?.toUpperCase() || "م"}
+                              </div>
+                            )
+                          ) : null}
+                        </div>
+
                         <div
-                          className={`mb-2 text-[11px] ${
-                            isMine ? "text-white/85" : "text-gray-300"
+                          className={`w-fit min-w-[110px] rounded-2xl px-3 py-3 shadow-[0_8px_25px_rgba(0,0,0,0.22)] sm:min-w-[120px] sm:px-4 ${
+                            isMine
+                              ? "rounded-bl-md bg-[#B794F6] text-white"
+                              : "rounded-br-md border border-white/10 bg-[#1b1330]/95 text-white"
                           }`}
                         >
-                          {msg.senderUser} • {new Date(msg.createdAt).toLocaleString()}
-                        </div>
-
-                        {replied && (
-                          <div
-                            className={`mb-2 rounded-xl border px-3 py-2 text-xs ${
-                              isMine
-                                ? "border-white/20 bg-white/10 text-white/90"
-                                : "border-white/10 bg-black/20 text-gray-200"
-                            }`}
-                          >
-                            <div className="mb-1 opacity-80">ردًا على: {replied.senderUser}</div>
-                            <div className="whitespace-pre-wrap break-words line-clamp-3">
-                              {replied.body}
+                          {!isSameSenderAsPrev && (
+                            <div
+                              className={`mb-2 text-[10px] sm:text-[11px] ${
+                                isMine ? "text-white/85" : "text-gray-300"
+                              }`}
+                            >
+                              {new Date(msg.createdAt).toLocaleString("ar-SA")} • {msg.senderUser}
                             </div>
+                          )}
+
+                          {replied && (
+                            <div
+                              className={`mb-2 rounded-xl border px-3 py-2 text-right text-[11px] sm:text-xs ${
+                                isMine
+                                  ? "border-white/20 bg-white/10 text-white/90"
+                                  : "border-white/10 bg-black/20 text-gray-200"
+                              }`}
+                            >
+                              <div className="mb-1 opacity-80">ردًا على: {replied.senderUser}</div>
+                              <div className="line-clamp-3 whitespace-pre-wrap break-words">
+                                {replied.body}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="whitespace-pre-wrap break-words text-right text-sm leading-7">
+                            {msg.body}
                           </div>
-                        )}
 
-                        <div className="whitespace-pre-wrap break-words text-sm leading-6">
-                          {msg.body}
-                        </div>
-
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setReplyTo(msg)}
-                            className={`text-[11px] transition ${
-                              isMine
-                                ? "text-white/90 hover:text-white"
-                                : "text-purple-200 hover:text-purple-100"
-                            }`}
-                          >
-                            رد (اقتباس)
-                          </button>
+                          <div className="mt-3 flex justify-start">
+                            <button
+                              type="button"
+                              onClick={() => setReplyTo(msg)}
+                              className={`text-[11px] transition ${
+                                isMine
+                                  ? "text-white/90 hover:text-white"
+                                  : "text-purple-200 hover:text-purple-100"
+                              }`}
+                            >
+                              رد (اقتباس)
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
+                <div ref={chatEndRef} />
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
+        </div>
+      </div>
 
+      {/* Fixed composer */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 lg:px-8">
+        <div className="pointer-events-auto mx-auto w-full max-w-[980px]">
           {replyTo && (
-            <div className="mb-3 rounded-2xl border border-purple-500/40 bg-purple-950/40 px-4 py-3">
-              <div className="mb-1 text-xs text-gray-200">أنت ترد على: {replyTo.senderUser}</div>
-              <div className="line-clamp-2 text-sm text-gray-100">{replyTo.body}</div>
+            <div className="mb-3 rounded-2xl border border-purple-500/40 bg-purple-950/70 px-4 py-3 backdrop-blur-sm">
+              <div className="mb-1 text-right text-xs text-gray-200">
+                أنت ترد على: {replyTo.senderUser}
+              </div>
+              <div className="line-clamp-2 text-right text-sm text-gray-100">
+                {replyTo.body}
+              </div>
               <button
                 type="button"
                 onClick={() => setReplyTo(null)}
@@ -853,26 +1248,99 @@ export default function CampPage() {
             </div>
           )}
 
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={messageInputRef}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              placeholder="اكتب رسالتك..."
-              rows={1}
-              className="max-h-40 min-h-[48px] flex-1 resize-none overflow-y-auto rounded-2xl border border-purple-500/50 bg-[#120b22] px-4 py-3 text-sm text-white outline-none placeholder:text-gray-400"
-            />
-            <button
-              type="button"
-              onClick={handleSendMessage}
-              className="h-12 rounded-2xl bg-purple-600 px-5 text-sm font-medium transition hover:bg-purple-500"
-            >
-              إرسال
-            </button>
+          <div className="rounded-[24px] border border-purple-500/40 bg-[#110a20]/88 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:rounded-[28px] sm:p-3">
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                className="h-[48px] shrink-0 rounded-2xl bg-purple-600 px-4 text-sm font-medium transition hover:bg-purple-500 sm:h-[50px] sm:px-5"
+              >
+                إرسال
+              </button>
+
+              <textarea
+                ref={messageInputRef}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder="اكتب رسالتك..."
+                rows={1}
+                className="max-h-40 min-h-[48px] flex-1 resize-none overflow-y-auto rounded-2xl border border-purple-500/50 bg-[#120b22] px-4 py-3 text-right text-sm text-white outline-none placeholder:text-gray-400 sm:min-h-[50px]"
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* System dialog بدل alert/confirm */}
+      {systemDialog.isOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-md rounded-3xl border border-purple-500/30 bg-[#0f0a1d] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)] sm:p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span
+                className={`rounded-full border px-3 py-1 text-xs ${dialogStyles.badge}`}
+              >
+                {systemDialog.variant === "success" && "نجاح"}
+                {systemDialog.variant === "error" && "تنبيه"}
+                {systemDialog.variant === "confirm" && "تأكيد"}
+                {systemDialog.variant === "info" && "معلومة"}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (systemDialog.variant === "confirm") {
+                    resolveConfirm(false);
+                  } else {
+                    closeDialog();
+                  }
+                }}
+                className="text-sm text-gray-400 transition hover:text-white"
+              >
+                إغلاق
+              </button>
+            </div>
+
+            <h3 className="mb-2 text-right text-lg font-semibold text-white">
+              {systemDialog.title}
+            </h3>
+
+            <p className="text-right text-sm leading-7 text-gray-300">
+              {systemDialog.message}
+            </p>
+
+            <div className="mt-5 flex flex-wrap justify-start gap-2">
+              {systemDialog.variant === "confirm" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => resolveConfirm(true)}
+                    className={`rounded-2xl px-4 py-2 text-sm text-white transition ${dialogStyles.button}`}
+                  >
+                    {systemDialog.confirmText || "تأكيد"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => resolveConfirm(false)}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition hover:bg-white/10"
+                  >
+                    {systemDialog.cancelText || "إلغاء"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className={`rounded-2xl px-4 py-2 text-sm text-white transition ${dialogStyles.button}`}
+                >
+                  {systemDialog.confirmText || "حسنًا"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

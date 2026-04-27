@@ -39,6 +39,33 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function sanitizeDisplayName(value?: string | null) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "مستخدم";
+
+  if (trimmed.includes("@")) {
+    return "مستخدم";
+  }
+
+  return trimmed;
+}
+
+function getInitial(name?: string | null) {
+  const safe = sanitizeDisplayName(name);
+  return safe.slice(0, 1).toUpperCase() || "U";
+}
+
+function buildAvatarUrl(name?: string | null, avatarUrl?: string | null) {
+  if (avatarUrl && avatarUrl.startsWith("http")) {
+    return avatarUrl;
+  }
+
+  const safeName = sanitizeDisplayName(name);
+  const encoded = encodeURIComponent(safeName || "User");
+
+  return `https://ui-avatars.com/api/?name=${encoded}&background=12082A&color=FFFFFF&size=128&bold=true`;
+}
+
 export default function LiveChat({ matchId, isLive }: LiveChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentUser, setCurrentUser] = useState<ChatUser | null>(null);
@@ -52,42 +79,50 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
 
   useEffect(() => {
     let mounted = true;
+async function loadUser() {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    async function loadUser() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+    if (!mounted) return;
 
-        if (!mounted) return;
-
-        if (!user) {
-          setCurrentUser(null);
-          setAuthLoading(false);
-          return;
-        }
-
-        const username =
-          (user.user_metadata?.username as string) ||
-          (user.user_metadata?.full_name as string) ||
-          user.email?.split("@")[0] ||
-          "مستخدم";
-
-        const avatar_url =
-          (user.user_metadata?.avatar_url as string) || null;
-
-        setCurrentUser({
-          id: user.id,
-          username,
-          avatar_url,
-        });
-      } catch (error) {
-        console.error("auth chat error:", error);
-        setCurrentUser(null);
-      } finally {
-        if (mounted) setAuthLoading(false);
-      }
+    if (!user) {
+      setCurrentUser(null);
+      setAuthLoading(false);
+      return;
     }
+
+    const username =
+      (user.user_metadata?.username as string) ||
+      (user.user_metadata?.full_name as string) ||
+      "";
+
+    let avatar_url: string | null = null;
+
+    // 🔥 هنا الربط الجديد مع جدول Profile
+    const { data: profileData } = await supabase
+      .from("Profile")
+      .select("profilePic")
+      .eq("pruserName", username)
+      .maybeSingle();
+
+    if (profileData?.profilePic) {
+      avatar_url = profileData.profilePic;
+    }
+
+    setCurrentUser({
+      id: user.id,
+      username: username || "مستخدم",
+      avatar_url,
+    });
+  } catch (error) {
+    console.error("auth chat error:", error);
+    setCurrentUser(null);
+  } finally {
+    if (mounted) setAuthLoading(false);
+  }
+}
 
     loadUser();
 
@@ -118,7 +153,12 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
           return;
         }
 
-        setMessages((data || []) as ChatMessage[]);
+        const cleaned = ((data || []) as ChatMessage[]).map((msg) => ({
+          ...msg,
+          username: sanitizeDisplayName(msg.username),
+        }));
+
+        setMessages(cleaned);
       } catch (error) {
         console.error("chat unexpected error:", error);
         if (mounted) setErrorMsg("حدث خطأ أثناء تحميل المحادثة");
@@ -141,22 +181,26 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
         },
         (payload) => {
           const newMessage = payload.new as ChatMessage;
+          const normalizedMessage: ChatMessage = {
+            ...newMessage,
+            username: sanitizeDisplayName(newMessage.username),
+          };
 
           setMessages((prev) => {
             const withoutTemp = prev.filter(
               (m) =>
                 !(
                   m.id.startsWith("temp-") &&
-                  m.user_id === newMessage.user_id &&
-                  m.content === newMessage.content
+                  m.user_id === normalizedMessage.user_id &&
+                  m.content === normalizedMessage.content
                 )
             );
 
-            if (withoutTemp.some((m) => m.id === newMessage.id)) {
+            if (withoutTemp.some((m) => m.id === normalizedMessage.id)) {
               return withoutTemp;
             }
 
-            return [...withoutTemp, newMessage];
+            return [...withoutTemp, normalizedMessage];
           });
         }
       )
@@ -191,6 +235,11 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
 
     if (value.length > 300) {
       setErrorMsg("الرسالة طويلة جدًا");
+      return;
+    }
+
+    if (!currentUser.username || currentUser.username === "مستخدم") {
+      setErrorMsg("اسم المستخدم غير متوفر، أكمل بيانات الحساب أولاً");
       return;
     }
 
@@ -259,6 +308,8 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
         ) : (
           messages.map((msg) => {
             const mine = currentUser?.id === msg.user_id;
+            const displayName = sanitizeDisplayName(msg.username);
+            const avatar = buildAvatarUrl(displayName, msg.avatar_url);
 
             return (
               <div
@@ -270,26 +321,26 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5">
-                    {msg.avatar_url && msg.avatar_url.startsWith("http") ? (
-  <Image
-    src={msg.avatar_url}
-    alt={msg.username}
-    width={44}
-    height={44}
-    className="h-11 w-11 object-cover"
-    unoptimized
-  />
-) : (
-                      <span className="text-sm font-bold text-white">
-                        {msg.username?.slice(0, 1).toUpperCase() || "U"}
-                      </span>
-                    )}
+                    <Image
+                      src={avatar}
+                      alt={displayName}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 object-cover"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          displayName
+                        )}&background=12082A&color=FFFFFF&size=128&bold=true`;
+                      }}
+                    />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center gap-2">
                       <span className="font-semibold text-white">
-                        {msg.username}
+                        {displayName}
                       </span>
                       <span className="text-xs text-white/40">
                         {formatTime(msg.created_at)}
