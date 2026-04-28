@@ -277,7 +277,7 @@ export default function VisitorProfilePage() {
             <div className="w-full mb-10">
               <div className="flex flex-row-reverse items-center justify-end gap-3 mb-4">
                 <span className="text-[28px]">🏆</span>
-                <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir="rtl">زون إنفو</h3>
+                <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir="rtl">ساحة الانجازات </h3>
               </div>
               <div className="w-full rounded-2xl p-[1.5px] relative"
                 style={{ background: zoneinfo ? "linear-gradient(135deg, #FF27F0, #B37FEB, #29FF64)" : "linear-gradient(135deg, #333, #555)" }}>

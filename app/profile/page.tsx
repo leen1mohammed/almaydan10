@@ -129,8 +129,8 @@ function AdminCard({
   onChange: (val: string) => void;
 }) {
   return (
-    <div className="w-full mb-14">
-      <div className="flex items-center justify-end gap-3 mb-4">
+    <div className="w-full mb-14" dir="rtl">
+      <div className="flex items-center justify-start  gap-3 mb-4">
         <label className="text-[22px] font-[900] text-right text-white font-['Cairo']">
           بطاقة المشرف
         </label>
@@ -141,13 +141,13 @@ function AdminCard({
         style={{ background: "linear-gradient(135deg, #29FF64, #B37FEB, #FF27F0)" }}
       >
         <div
-          className="w-full rounded-2xl px-6 py-8 flex flex-col items-end gap-5"
+          className="w-full rounded-2xl px-6 py-8 flex flex-col items-start gap-5"
           style={{
             background: "linear-gradient(145deg, #0D0A2E, #0a1628)",
             boxShadow: "inset 0 0 40px rgba(41,255,100,0.07)",
           }}
         >
-          <p className="text-right text-white/40 text-[13px] font-['Cairo']">
+          <p className="text-right text-white/40 text-[13px] font-['Cairo'] w-full">
             أنت مسؤول في الميدان — رقم جوالك سيظهر للزوار في صفحتك
           </p>
           <div className="w-full flex flex-col gap-2">
