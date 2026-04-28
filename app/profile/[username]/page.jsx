@@ -110,7 +110,7 @@ export default function VisitorProfilePage() {
     <main className="min-h-screen bg-[#061125] text-white flex flex-col items-center font-['Cairo'] relative overflow-x-hidden" dir="rtl">
       <Glow />
 
-      <div className="z-10 w-full max-w-[923px] flex flex-col items-center pb-28 px-4">
+      <div className="z-10 w-full max-w-[923px] flex flex-col items-center pb-28 px-4" style={{ direction: "rtl" }}>
 
         {/* Title */}
         <h1 className="w-full text-center text-[80px] font-[900] leading-[100px] text-white mt-10 mb-16"
@@ -275,9 +275,9 @@ export default function VisitorProfilePage() {
 
             {/* Zone Info */}
             <div className="w-full mb-10">
-              <div className="flex items-center justify-end gap-3 mb-4">
-                <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">زون إنفو</h3>
+              <div className="flex flex-row-reverse items-center justify-end gap-3 mb-4">
                 <span className="text-[28px]">🏆</span>
+                <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']" dir="rtl">ساحة الانجازات </h3>
               </div>
               <div className="w-full rounded-2xl p-[1.5px] relative"
                 style={{ background: zoneinfo ? "linear-gradient(135deg, #FF27F0, #B37FEB, #29FF64)" : "linear-gradient(135deg, #333, #555)" }}>
@@ -297,19 +297,22 @@ export default function VisitorProfilePage() {
             {/* Arenas */}
             {arenas.length > 0 && (
               <div className="w-full mb-10">
-                <div className="flex items-center justify-end gap-3 mb-4">
-                  <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">الساحات</h3>
+                <div className="flex flex-row-reverse items-center justify-end gap-3 mb-4">
                   <span className="text-[28px]">⚔️</span>
+                  <h3 className="text-[22px] font-[900] text-right text-white font-['Cairo']">الساحات</h3>
+                  
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {arenas.map((arena, i) => (
+                <div className="grid grid-cols-2 gap-4" style={{ direction: "rtl" }}>
+                  {arenas.slice().reverse().map((arena, i) => (
                     <div key={i}
-                      className="rounded-2xl p-[1.5px]"
+                      className="w-full rounded-2xl p-[1.5px]"
                       style={{ background: "linear-gradient(135deg, #B37FEB, #29FF64)" }}>
-                      <div className="rounded-2xl px-4 py-4 flex items-center gap-3 justify-end"
+                      <div className="rounded-2xl px-4 py-4 flex flex-row items-center gap-3  "
                         style={{ background: "linear-gradient(145deg, #0D0A2E, #0a1628)" }}>
-                        <div className="text-right">
-                          <p className="text-white font-bold text-[15px] font-['Cairo']">{arena.name}</p>
+
+                          
+                        <div className="text-right flex-1 ">
+                          <p className="text-white font-bold text-[15px] font-['Cairo'] rtl">{arena.name}</p>
                           {arena.description && (
                             <p className="text-white/40 text-[12px] font-['Cairo'] mt-1 line-clamp-1">{arena.description}</p>
                           )}

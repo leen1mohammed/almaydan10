@@ -7,6 +7,7 @@ import { authService } from '@/services/authService';
 import { supabase } from '../../../lib/supabase';
 import "../../globals.css";
 import { motion, AnimatePresence } from 'framer-motion';
+import useSound from 'use-sound';
 
 export default function ArenaDetailsPage() {
 
@@ -21,6 +22,15 @@ export default function ArenaDetailsPage() {
   const reactionsList = ['☹️', '😂', '👍🏻', '❤️', '🔥'];
   const [messageReactions, setMessageReactions] = useState({}); // { messageId: { emoji: count, userReacted: true } }
   const [floatingEmojis, setFloatingEmojis] = useState([]);
+  const [playPop] = useSound('/sounds/reaction-pop.mp3', { volume: 0.5 });
+  const [playSwordEntrance] = useSound('/sounds/sword-entrance.mp3', { volume: 0.4 });
+  // أضيفي هذا الـ State في بداية المكون
+  const [otherArenasBubbles, setOtherArenasBubbles] = useState([
+  { id: 1, top: '60%', side: 'left', color: '#29FF64' },
+  { id: 2, top: '80%', side: 'right', color:'#FF27F0' },
+  { id: 3, top: '70%', side: 'left', color: '#00CCFF' },
+  { id: 4, top: '90%', side: 'right', color:'#FF891B' },
+  ]);
   
   
 
@@ -72,6 +82,8 @@ export default function ArenaDetailsPage() {
 
 const handleReactionToggle = async (messageId, emoji) => {
   if (!user) return;
+
+  playPop();
   
   // 1. تحديث الواجهة فوراً (Optimistic UI)
   setMessages((prevMessages) =>
@@ -135,16 +147,18 @@ const triggerFloatingEmoji = (emoji) => {
 
  useEffect(() => {
   const loadInitialMessages = async () => {
-      const decodedName = decodeURIComponent(arenaName);
-
-
+    const decodedName = decodeURIComponent(arenaName);
+    const currentUser = await authService.getCurrentUser();
+    if (!currentUser){
+      router.replace('/login')
+      return;
+    }
+    setUser(currentUser);
     // جلب بيانات الساحة نفسها عشان ناخذ الصورة
     const allArenas = await arenaService.getAllArenas();
     const currentArena = allArenas.find(a => a.name === decodedName);
     setArenaData(currentArena);
 
-    const currentUser = await authService.getCurrentUser();
-    setUser(currentUser);
 
     const userRole= await authService.getUserRole(currentUser.userName);
       setRole(userRole)
@@ -152,16 +166,17 @@ const triggerFloatingEmoji = (emoji) => {
 
     const data = await arenaService.getArenaContent(decodedName);
     setMessages(data);
+    playSwordEntrance();
      };
      loadInitialMessages();
 
      // 2. تفعيل القناة اللحظية (Chat + Emoji Burst)
   const channel = supabase
     .channel(`arena:${decodedName}`  , {
-  config: {
-    broadcast: { self: true }, // 👈 هذي تخلي الإشارة توصل للكل بما فيهم أنتِ
-  },
-}) // استخدمنا اسم فريد للساحة
+      config: {
+        broadcast: { self: true }, // 👈 هذي تخلي الإشارة توصل للكل بما فيهم أنتِ
+      },
+    }) // استخدمنا اسم فريد للساحة
 
     .on(
       'postgres_changes',
@@ -184,6 +199,7 @@ const triggerFloatingEmoji = (emoji) => {
 
   // 3. استقبال الإيموجي الطائر
   .on('broadcast', { event: 'emoji_burst' }, ({ payload }) => {
+    playPop(); // 🔊 تشغيل الصوت عند الحساب الثاني لما يوصله الرياكشن
     triggerFloatingEmoji(payload.emoji);
   })
     .subscribe((status) => console.log("حالة الاتصال الحالية:", status));
@@ -191,7 +207,7 @@ const triggerFloatingEmoji = (emoji) => {
     return () => {
     supabase.removeChannel(channel);
     };
-    }, [decodedName]);
+    }, [decodedName, playPop]);
 
 
   const handleSend = async () => {
@@ -232,8 +248,40 @@ const triggerFloatingEmoji = (emoji) => {
     }
   }
 };
+
+useEffect(() => {
+  const updateOtherActivity = async () => {
+    try {
+      // 1. جلب البيانات من السيرفس
+      const recentMsgs = await arenaService.getOtherArenasMessages(decodedName);
+      
+      if (recentMsgs && recentMsgs.length > 0) {
+        // 2. تحديث الفقاعات بمحتوى حقيقي
+        setOtherArenasBubbles(prev => prev.map((bubble, index) => {
+          // نوزع الرسايل اللي جت على الفقاعات الموجودة
+          const msg = recentMsgs[index % recentMsgs.length];
+          return {
+            ...bubble,
+            text: `في ساحة ${msg.ArenaName}: ${msg.body.substring(0, 30)}...`
+          };
+        }));
+      }
+    } catch (error) {
+      console.error("فشل جلب نشاط الساحات:", error);
+    }
+  };
+
+  // نشغلها أول ما تفتح الصفحة
+  updateOtherActivity();
+
+  // ونحدثها كل 30 ثانية عشان ما نضغط على الداتابيز
+  const interval = setInterval(updateOtherActivity, 30000);
+  return () => clearInterval(interval);
+}, [decodedName]);
+
   return (
     <main className="min-h-screen w-full bg-[#061125] flex flex-col items-center">
+      
 
       {/*<ParticlesBackground />*/}
       
@@ -260,6 +308,63 @@ const triggerFloatingEmoji = (emoji) => {
         <button onClick={() => router.back()} className="text-[#29FF64] font-bold font-['Cairo']"> السابق</button>
         
       </header>
+
+      {/* فقاعات النيون الجانبية (أخبار الساحات الأخرى) */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <p className="absolute top-100 left-10 text-white/40 font-['Cairo'] text-2xl font-black italic tracking-widest uppercase"
+          style={{ 
+          textShadow: '0 0 15px rgba(255, 39, 240, 0.3)', // توهج وردي خفيف
+          lineHeight: '1'
+        }}>
+        رادار <br/>
+        <span className="text-[#FF27F0] text-4xl shadow-pink-500/50">الميدان</span>
+       
+      </p>
+
+
+
+
+
+          {/*<p className="absolute top-90 left-10 text-white/50 font-['Cairo'] text-2xl font-black italic tracking-wider"
+          style={{ 
+            textShadow: '0 0 10px rgba(255, 255, 255, 0.2)', // توهج خفيف يخليها "لايف"
+            maxWidth: '250px', // عشان لو كبرت ما تمد بالعرض بزيادة
+            lineHeight: '1.2'
+          }}>
+          وش قاعد يصير <br/> 
+          <span className="text-[#29FF64] text-3xl">بالساحات الثانية؟</span>
+        </p>*/}
+          
+  {otherArenasBubbles.map((bubble) => (
+    <motion.div
+      key={bubble.id}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ 
+        opacity: [0.2, 0.5, 0.2], 
+        y: [0, -20, 0], // حركة طفو خفيفة
+        scale: [1, 1.05, 1] 
+      }}
+      transition={{ 
+        duration: 5 + Math.random() * 2, 
+        repeat: Infinity, 
+        ease: "easeInOut" 
+      }}
+      className="absolute p-4 rounded-2xl border-[1px] backdrop-blur-sm"
+      style={{
+        top: bubble.top,
+        [bubble.side]: '20px', // يثبتها على الجوانب (20 بكسل من الحافة)
+        borderColor: bubble.color,
+        boxShadow: `0 0 15px ${bubble.color}44`, // توهج خفيف
+        backgroundColor: `${bubble.color}11`, // لون خلفية شفاف جداً
+        maxWidth: '180px'
+      }}
+    >
+      <span className="text-white font-['Cairo'] text-[12px] block text-center leading-tight opacity-80">
+        {bubble.text}
+      </span>
+    </motion.div>
+  ))}
+</div>
 
     <div className="relative w-full max-w-[800px] h-[240px] mx-auto mt-2 mb-0 overflow-hidden flex justify-center items-center">
   {getTopWords(messages).map(([word, count], i) => {
