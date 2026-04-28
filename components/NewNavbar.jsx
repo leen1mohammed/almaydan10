@@ -153,58 +153,68 @@ useEffect(() => {
       <nav
         dir="rtl"
         style={{ fontFamily: "var(--font-cairo)" }}
-        className="w-full h-[78px] bg-esport-dark shadow-navbar rounded-2xl grid grid-cols-[auto_1fr_auto] items-center px-6 text-white relative"
+        // التعديل هنا: جعلنا الارتفاع تلقائي h-auto والشكل مرن flex-col للجوال و flex-row للشاشات الكبيرة
+        className="w-full min-h-[78px] h-auto py-4 lg:py-0 bg-esport-dark shadow-navbar rounded-2xl flex flex-col lg:flex-row items-center justify-between px-6 text-white relative gap-4"
       >
-        {/* RIGHT: Logo */}
-        <div className="justify-self-end">
-          <Link href="/" className="hover:opacity-80 transition-opacity flex-shrink-0">
+        
+        {/* RIGHT (أو الأيمن في العربي): Logo - خليناه أول شيء في الموبايل */}
+        <div className="flex-shrink-0">
+          <Link href="/" className="hover:opacity-80 transition-opacity">
             <LogoSVG />
           </Link>
         </div>
 
-        {/* CENTER: Links */}
-        <div className="hidden lg:flex items-center justify-center justify-self-center text-[14px] font-normal leading-[16px]">
+        {/* CENTER: Links - الآن تظهر في الموبايل تحت بعض وفي اللاب توب بجانب بعض */}
+        <div className="flex flex-wrap items-center justify-center gap-4 text-[14px] font-normal leading-[16px]">
           <Link href="/matches" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             جدول المباريات
           </Link>
-          <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
+          
+          {/* الفواصل تختفي في الشاشات الصغيرة عشان ما تخرب المنظر */}
+          <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
+          
           <Link href="/live" className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap">
             <LiveDotSVG />
             <span>الآن</span>
           </Link>
-          <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
+          
+          <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
+          
           <button onClick={() => handleProtectedAction("/arena")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
             الساحة
           </button>
+          
           {!isAdmin && (
             <>
-              <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
+              <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
               <button onClick={() => handleProtectedAction("/camp")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
                 المعسكر
               </button>
             </>
           )}
-          <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
+          
+          <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
+          
           <Link href="/homidan" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             اسأل حميدان
           </Link>
-          <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
+          
+          <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
+          
           <Link href="/about" className="hover:text-esport-primary transition-colors whitespace-nowrap">
             حول
           </Link>
         </div>
 
         {/* LEFT: Profile + Search */}
-        <div className="flex items-center gap-4 justify-self-start">
+        <div className="flex items-center gap-4 flex-shrink-0">
           <div
             onClick={() => user ? router.push("/profile") : router.push("/login")}
             className="w-[49px] h-[49px] rounded-full border-2 border-[#722ED1] hover:border-esport-primary transition-all cursor-pointer overflow-hidden relative flex items-center justify-center"
           >
             {loading ? (
-              // Pulse placeholder while loading
               <div className="w-full h-full rounded-full bg-[#1A0B36] animate-pulse" />
             ) : user && profilePic ? (
-              // Logged in → show their avatar
               <Image
                 src={profilePic}
                 alt="User"
@@ -213,18 +223,18 @@ useEffect(() => {
                 unoptimized
               />
             ) : (
-              // Logged out → show silhouette
               <SilhouetteSVG />
             )}
           </div>
 
+          <div className="relative">
+            <button onClick={() => setIsSearchOpen(!isSearchOpen)}
+              className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <SearchSVG />
+            </button>
 
-           {/* شغل البحث هنا */}
-           <div className="relative">
-          <button onClick={() => setIsSearchOpen(!isSearchOpen)}
-          className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <SearchSVG />
-          </button>
+
+
           </div>
         {isSearchOpen && (
     <>
