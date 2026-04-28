@@ -51,12 +51,12 @@ export const GAME_ASSETS: Record<string, { title: string; header: string }> = {
 
   "dota-2": {
     title: "DOTA 2",
-    header: "/games/dota-2.png",
+    header: "/games/dota2.png",
   },
 
   dota2: {
     title: "DOTA 2",
-    header: "/games/dota-2.png",
+    header: "/games/dota2.png",
   },
 
   kog: {
@@ -81,12 +81,12 @@ export const GAME_ASSETS: Record<string, { title: string; header: string }> = {
 
   overwatch: {
     title: "OVERWATCH",
-    header: "/games/default.png",
+    header: "/games/overwatch.png",
   },
 
   rocketleague: {
     title: "ROCKET LEAGUE",
-    header: "/games/default.png",
+    header: "/games/rocket-league.png",
   },
 
   default: {

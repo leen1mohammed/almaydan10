@@ -189,262 +189,25 @@ export async function GET(request: Request) {
     const status = normalizeStatus(tab);
     const sortValue = tab === "past" ? "-begin_at" : "begin_at";
 
-    const url =
-      `https://api.pandascore.co/matches` +
+    const nowIso = new Date().toISOString();
+const pastLimitIso = new Date(
+  Date.now() - 30 * 24 * 60 * 60 * 1000
+).toISOString();
+
+const url =
+  tab === "past"
+    ? `https://api.pandascore.co/matches` +
+      `?filter[status]=finished` +
+      `&range[begin_at]=${pastLimitIso},${nowIso}` +
+      `&sort=-begin_at` +
+      `&page[size]=${Math.min(Math.max(size, 1), 100)}`
+    : `https://api.pandascore.co/matches` +
       `?filter[status]=${status}` +
       `&sort=${sortValue}` +
       `&page[size]=${Math.min(Math.max(size, 1), 100)}`;
 
-    // ===== PAST: التاريخ من الكاش دائمًا + السكور من API إذا توفر =====
-    if (tab === "past") {
-      const nowIso = new Date().toISOString();
-      const pastLimitIso = new Date(
-        Date.now() - 30 * 24 * 60 * 60 * 1000
-      ).toISOString();
-
-      const { data: cached, error } = await supabase
-        .from("match_time_cache")
-        .select("*")
-        .lte("start_at", nowIso)
-        
-        .order("start_at", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.log("❌ CACHE FETCH ERROR:", error);
-        return NextResponse.json({
-          success: true,
-          count: 0,
-          matches: [],
-        });
-      }
-
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          Accept: "application/json",
-        },
-        next: { revalidate: 30 },
-      });
-
-      const data: PandaMatch[] = res.ok ? await res.json() : [];
-
-      const apiMap = new Map(
-        (Array.isArray(data) ? data : []).map((match) => [String(match.id), match])
-      );
-
-      const matches = (cached || [])
-  .filter((item) => {
-    const apiMatch = apiMap.get(String(item.match_id));
-
-    // إذا كانت المباراة موجودة في PandaScore نثق بحالتها الفعلية
-    if (apiMatch) {
-      return apiMatch.status === "finished";
-    }
-
-    // إذا لم تعد موجودة في API نسمح بعرضها من الكاش
-    return true;
-  })
-  .map((item) => {
-    const apiMatch = apiMap.get(String(item.match_id));
-
-    // fallback: من الكاش بالكامل إذا ما وجدنا المباراة في API
-    if (!apiMatch) {
-      return {
-        id: String(item.match_id),
-        status: "FINISHED",
-        game_type: item.game_type || "default",
-        start_at: item.start_at,
-        tournament: {
-          id: undefined,
-          name: "—",
-          logo_url: undefined,
-        },
-        teams: [
-          {
-            id: undefined,
-            name: item.team_a || "Team A",
-            logo_url: "",
-            score: typeof item.score_a === "number" ? item.score_a : 0,
-          },
-          {
-            id: undefined,
-            name: item.team_b || "Team B",
-            logo_url: "",
-            score: typeof item.score_b === "number" ? item.score_b : 0,
-          },
-        ] as [
-          { id?: string; name: string; logo_url: string; score: number },
-          { id?: string; name: string; logo_url: string; score: number }
-        ],
-        best_of: undefined,
-        stream_url: item.replay_url || undefined,
-        streams_list: [],
-      };
-    }
-
-    const opponents = Array.isArray(apiMatch.opponents) ? apiMatch.opponents : [];
-    const results = Array.isArray(apiMatch.results) ? apiMatch.results : [];
-
-    const teams = opponents.slice(0, 2).map((entry, index) => {
-      const opponentId = entry?.opponent?.id;
-
-      const result =
-        results.find((r) => r.team_id === opponentId) ||
-        results[index] ||
-        null;
-
-      return {
-        id: opponentId ? String(opponentId) : undefined,
-        name:
-          entry?.opponent?.name ||
-          (index === 0 ? item.team_a : item.team_b) ||
-          "Unknown Team",
-        logo_url: entry?.opponent?.image_url || "",
-        score:
-          typeof result?.score === "number"
-            ? result.score
-            : index === 0
-            ? typeof item.score_a === "number"
-              ? item.score_a
-              : -1
-            : typeof item.score_b === "number"
-            ? item.score_b
-            : -1,
-      };
-    });
-
-    while (teams.length < 2) {
-      teams.push({
-        id: undefined,
-        name:
-          teams.length === 0
-            ? item.team_a || "Team A"
-            : item.team_b || "Team B",
-        logo_url: "",
-        score:
-          teams.length === 0
-            ? typeof item.score_a === "number"
-              ? item.score_a
-              : 0
-            : typeof item.score_b === "number"
-            ? item.score_b
-            : 0,
-      });
-    }
-
-    const tournamentName =
-      apiMatch.tournament?.name ||
-      apiMatch.league?.name ||
-      "Unknown Tournament";
-
-    const tournamentLogo =
-      apiMatch.tournament?.image_url ||
-      apiMatch.league?.image_url ||
-      undefined;
-
-    const normalizedGameType = normalizeGameType(
-      apiMatch.videogame?.slug || null,
-      apiMatch.videogame?.name || null
-    );
-
-    return {
-      id: String(apiMatch.id),
-      status: "FINISHED",
-      game_type: normalizedGameType,
-    start_at: apiMatch.begin_at,
-      tournament: {
-        id: apiMatch.tournament?.id
-          ? String(apiMatch.tournament.id)
-          : apiMatch.league?.id
-          ? String(apiMatch.league.id)
-          : undefined,
-        name: tournamentName,
-        logo_url: tournamentLogo || undefined,
-      },
-      teams: [teams[0], teams[1]] as [
-        { id?: string; name: string; logo_url: string; score: number },
-        { id?: string; name: string; logo_url: string; score: number }
-      ],
-      best_of:
-        typeof apiMatch.number_of_games === "number"
-          ? apiMatch.number_of_games
-          : undefined,
-      stream_url:
-        apiMatch.official_stream_url ||
-        apiMatch.stream_url ||
-        item.replay_url ||
-        undefined,
-      streams_list: Array.isArray(apiMatch.streams_list)
-        ? apiMatch.streams_list
-        : [],
-    };
-  });
-      const finalMatches = onlySaudi
-        ? matches.filter((match) =>
-            match.teams.some((team) => isSaudiTeam(team.name))
-          )
-        : matches;
-        const enrichedMatches = await Promise.all(
-  finalMatches.map(async (match) => {
-    try {
-      const detailRes = await fetch(
-        `https://api.pandascore.co/matches/${match.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (!detailRes.ok) {
-        return match;
-      }
-
-      const detail: PandaMatch = await detailRes.json();
-
-      const detailResults = Array.isArray(detail.results) ? detail.results : [];
-
-      const teamAScore =
-        typeof detailResults[0]?.score === "number"
-          ? detailResults[0].score
-          : match.teams[0].score;
-
-      const teamBScore =
-        typeof detailResults[1]?.score === "number"
-          ? detailResults[1].score
-          : match.teams[1].score;
-
-      return {
-        ...match,
-        teams: [
-          {
-            ...match.teams[0],
-            score: teamAScore,
-          },
-          {
-            ...match.teams[1],
-            score: teamBScore,
-          },
-        ] as [
-          { id?: string; name: string; logo_url: string; score: number },
-          { id?: string; name: string; logo_url: string; score: number }
-        ],
-      };
-    } catch {
-      return match;
-    }
-  })
-);
-
-    return NextResponse.json({
-  success: true,
-  count: enrichedMatches.length,
-  matches: enrichedMatches,
-});
-    }
+    
+    
 
     // ===== UPCOMING / LIVE =====
     const res = await fetch(url, {
@@ -538,6 +301,32 @@ export async function GET(request: Request) {
           : [],
       };
     });
+    if (tab === "past") {
+  const idsWithoutDate = matches
+    .filter((m) => !m.start_at)
+    .map((m) => String(m.id));
+
+  if (idsWithoutDate.length > 0) {
+    const { data: cached, error } = await supabase
+      .from("match_time_cache")
+      .select("match_id, start_at");
+
+    if (!error && cached) {
+      matches = matches.map((m) => {
+        if (m.start_at) return m;
+
+        const found = cached.find(
+          (c) => String(c.match_id) === String(m.id)
+        );
+
+        return found?.start_at
+          ? { ...m, start_at: found.start_at }
+          : m;
+      });
+    }
+  }
+
+}
 
     matches = matches.filter((match) => isWithinDateWindow(match.start_at, tab));
 
