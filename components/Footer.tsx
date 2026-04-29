@@ -120,7 +120,7 @@ export default function Footer() {
         /* الحاوية الرئيسية */
         .footer {
           width: 100%;
-          height: 212px;
+          height: 200px;
 
           background: #061125;
 

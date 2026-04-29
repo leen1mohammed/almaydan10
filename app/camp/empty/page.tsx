@@ -37,7 +37,7 @@ export default function CampEmptyPage() {
             الجزء: رسالة الحالة
             الدور: توضيح سبب الصفحة للمستخدم
           */}
-          <p className="text-3xl md:text-4xl text-white/30 mb-8">
+          <p className="text-2xl  text-white/30 mb-8">
             لا يوجد لديك معسكر حتى الآن..
           </p>
 

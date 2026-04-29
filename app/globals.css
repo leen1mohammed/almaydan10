@@ -52,3 +52,61 @@ body {
   50% { text-shadow: 0 0 20px white; }
   100% { text-shadow: 0 0 0px transparent; }
 }
+
+/* الكلاس الأساسي الموحد (الخصائص المشتركة) */
+.btn-base {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 150px;
+  padding: 8px 16px;
+  border-radius: 30px;
+  border-width: 1.4px;
+  transition: all 500ms ease;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  color: white;
+  background-blend-mode: soft-light, normal;
+  cursor: pointer;
+  outline: none;
+  border-style: solid;
+}
+
+.btn-base:hover {
+  transform: scale(1.05);
+}
+
+/* الزر الأخضر (قرين) */
+.btn-green {
+  border-color: #B37FEB;
+  box-shadow: 0 0 16px 0 rgba(41, 255, 100, 0.4);
+  background: linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(41, 255, 100, 0.53);
+}
+
+/* الزر الأحمر (رد) */
+.btn-red {
+  border-color: #FF4D4F;
+  box-shadow: 0 0 16px 0 rgba(255, 0, 0, 0.4);
+  background: linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(255, 0, 0, 0.53);
+}
+
+.btn-purple {
+  background: 
+    linear-gradient(319deg, 
+      rgba(255, 255, 255, 0.8) 11.46%, 
+      rgba(255, 255, 255, 0.8) 34.44%, 
+      rgba(255, 255, 255, 0) 66.52%, 
+      rgba(255, 255, 255, 0.8) 94.3%
+    ), 
+    #12082A !important;
+  border-color: #B37FEB !important;
+  box-shadow: 0 2px 2px 0 #000, 0 0 16px 0 rgba(146, 84, 222, 0.32) !important;
+  width: 201px !important;
+  background-blend-mode: soft-light, normal !important;
+}
+
+.btn-purple:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 2px 2px 0 #000, 0 0 20px 0 rgba(146, 84, 222, 0.5);
+}

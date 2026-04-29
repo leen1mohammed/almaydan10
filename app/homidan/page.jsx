@@ -5,7 +5,6 @@ import styled from "styled-components";
 
 const PageWrapper = styled.main`
   min-height: 100vh;
-  background: linear-gradient(180deg, #040b19 0%, #061125 100%);
   padding: 32px 16px;
   color: white;
 `;
@@ -17,16 +16,28 @@ const ChatShell = styled.div`
   height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(179, 127, 235, 0.25);
-  background: rgba(14, 21, 35, 0.92);
   border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  position: relative;
+  /* الحدود الخضراء النيون */
+  border: 1.4px solid #29FF64; 
+  /* الإضاءة البنفسجية (الوهج) */
+  box-shadow: 0 6px 37.5px -15px #FF27F0;
+  /* خلفية داكنة مع لمسة زجاجية */
+  background: linear-gradient(145deg, #0D0A2E, #0a1628);
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 40px rgba(41, 255, 100, 0.05);
+  }
 `;
 
 const TopBar = styled.div`
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(41, 255, 100, 0.3); 
+  box-shadow: 0 4px 10px rgba(41, 255, 100, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,14 +64,8 @@ const SubTitle = styled.p`
 `;
 
 const NewChatBtn = styled.button`
-  border: 1px solid rgba(179, 127, 235, 0.4);
-  background: rgba(18, 8, 42, 0.95);
-  color: white;
-  padding: 10px 16px;
-  border-radius: 14px;
-  font-family: Cairo;
-  font-size: 14px;
-  cursor: pointer;
+  font-size: 14px !important;
+  
 `;
 
 const MessagesArea = styled.div`
@@ -80,26 +85,51 @@ const MessageRow = styled.div`
 const MessageBubble = styled.div`
   max-width: 76%;
   width: fit-content;
-  padding: 14px 16px;
+  padding: 14px 18px;
   border-radius: 22px;
   font-family: Cairo;
   font-size: 16px;
-  line-height: 1.9;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  background: ${(props) =>
-    props.$isUser
-      ? "linear-gradient(135deg, #7b2ff7 0%, #f107a3 100%)"
-      : "#171f31"};
   color: white;
-  border: ${(props) =>
-    props.$isUser ? "none" : "1px solid rgba(255,255,255,0.08)"};
-  border-bottom-right-radius: ${(props) => (props.$isUser ? "8px" : "22px")};
-  border-bottom-left-radius: ${(props) => (props.$isUser ? "22px" : "8px")};
+  transition: all 0.3s ease;
+
+  /* التحكم في الستايل بناءً على من يرسل الرسالة */
+  ${(props) =>
+    props.$isUser
+      ? `
+        /* ستايل اليوزر الزجاجي المشع */
+        background: linear-gradient(135deg, rgba(114, 46, 209, 0.9) 0%, rgba(18, 8, 42, 0.95) 100%);
+        
+        /* حدود مشعة بلون أخضر نيون فسفوري */
+        border: 1.5px solid  #B37FEB; 
+        
+        /* توهج بنفسجي فخم من الخارج */
+        box-shadow: 0 0 20px rgba(114, 46, 209, 0.4), inset 0 0 10px rgba(41, 255, 100, 0.1);
+        
+        border-bottom-right-radius: 8px;
+        color: #fff;
+        text-shadow: 0 0 5px rgba(255,255,255,0.2);
+      `
+      : `
+        /* ستايل شات حميدان: الزجاجي الغامق (كما هو) */
+        background: linear-gradient(319deg, 
+          rgba(255, 255, 255, 0.15) 0%, 
+          rgba(255, 255, 255, 0.05) 50%, 
+          transparent 100%
+        ), #12082A;
+        
+        background-blend-mode: soft-light, normal;
+        border: 1.4px solid #B37FEB;
+        box-shadow: 0 0 15px rgba(146, 84, 222, 0.2);
+        border-bottom-left-radius: 8px;
+      `}
 `;
 
 const ComposerWrap = styled.div`
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(41, 255, 100, 0.3); 
+  box-shadow: 0 4px 10px rgba(41, 255, 100, 0.05);
   padding: 18px 20px;
 `;
 
@@ -125,22 +155,24 @@ const ComposerInput = styled.textarea`
   padding: 14px 16px;
   outline: none;
 
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+ 
+
   &::placeholder {
     color: #8e95a9;
   }
+
+  &:focus {
+  border-color: #FF27F0;
+  box-shadow: 0 0 10px rgba(41, 255, 100, 0.1);
+}
 `;
 
 const SendBtn = styled.button`
   height: 56px;
   min-width: 110px;
-  padding: 0 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(179, 127, 235, 0.45);
-  background: #12082a;
-  color: white;
-  font-family: Cairo;
-  font-size: 15px;
-  font-weight: 700;
   cursor: pointer;
   opacity: ${(props) => (props.disabled ? 0.6 : 1)};
 `;
@@ -296,9 +328,10 @@ export default function HomidanPage() {
             <SubTitle>شبيك لبيك حميدان بين يديك   </SubTitle>
           </TitleWrap>
 
-          <NewChatBtn onClick={handleNewChat}>
+          <NewChatBtn onClick={handleNewChat} className="btn-base btn-green !w-[130px] !h-[40px] !min-w-0 !px-0">
             محادثة جديدة
           </NewChatBtn>
+
         </TopBar>
 
         <MessagesArea>
@@ -332,9 +365,13 @@ export default function HomidanPage() {
               rows={1}
             />
 
-            <SendBtn onClick={() => sendMessage(input)} disabled={loading}>
-              {loading ? "..." : "إرسال"}
-            </SendBtn>
+            <SendBtn 
+            onClick={() => sendMessage(input)} 
+            disabled={loading} 
+            className="btn-base btn-green !w-[130px] !h-[40px] !min-w-0 !px-0 !mb-[9px]"
+          >
+            {loading ? "..." : "إرسال"}
+          </SendBtn>
           </ComposerInner>
 
           {error && <ErrorText>{error}</ErrorText>}

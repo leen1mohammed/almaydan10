@@ -73,8 +73,8 @@ export default function CampEntryPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-white">
-      <div className="animate-pulse text-purple-400 text-lg">جاري تجهيز المعسكر...</div>
-    </div>
+    <main className="min-h-screen bg-[#061125] flex items-center justify-center opacity-60 text-white font-['Cairo']">
+        <p className="animate-pulse text-2xl">جاري تجهيز المعسكر ...</p>
+      </main>
   );
 }

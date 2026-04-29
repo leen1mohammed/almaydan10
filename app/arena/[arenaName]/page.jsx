@@ -26,10 +26,10 @@ export default function ArenaDetailsPage() {
   const [playSwordEntrance] = useSound('/sounds/sword-entrance.mp3', { volume: 0.4 });
   // أضيفي هذا الـ State في بداية المكون
   const [otherArenasBubbles, setOtherArenasBubbles] = useState([
-  { id: 1, top: '60%', side: 'left', color: '#29FF64' },
-  { id: 2, top: '80%', side: 'right', color:'#FF27F0' },
-  { id: 3, top: '70%', side: 'left', color: '#00CCFF' },
-  { id: 4, top: '90%', side: 'right', color:'#FF891B' },
+  { id: 1, top: '75%', left: '20px', color: '#29FF64' },
+  { id: 2, top: '80%', left: '99px', color: '#FF27F0' }, // هذي مدفوعة لليمين شوي بس لسه في منطقة اليسار
+  { id: 3, top: '65%', left: '35px', color: '#00CCFF' },
+  { id: 4, top: '95%', left: '75px', color: '#FF891B' },
   ]);
   
   
@@ -310,8 +310,8 @@ useEffect(() => {
       </header>
 
       {/* فقاعات النيون الجانبية (أخبار الساحات الأخرى) */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <p className="absolute top-100 left-10 text-white/40 font-['Cairo'] text-2xl font-black italic tracking-widest uppercase"
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-70">
+        <p className="absolute top-100 left-30 text-white/40 font-['Cairo'] text-2xl font-black italic tracking-widest uppercase"
           style={{ 
           textShadow: '0 0 15px rgba(255, 39, 240, 0.3)', // توهج وردي خفيف
           lineHeight: '1'
@@ -325,15 +325,6 @@ useEffect(() => {
 
 
 
-          {/*<p className="absolute top-90 left-10 text-white/50 font-['Cairo'] text-2xl font-black italic tracking-wider"
-          style={{ 
-            textShadow: '0 0 10px rgba(255, 255, 255, 0.2)', // توهج خفيف يخليها "لايف"
-            maxWidth: '250px', // عشان لو كبرت ما تمد بالعرض بزيادة
-            lineHeight: '1.2'
-          }}>
-          وش قاعد يصير <br/> 
-          <span className="text-[#29FF64] text-3xl">بالساحات الثانية؟</span>
-        </p>*/}
           
   {otherArenasBubbles.map((bubble) => (
     <motion.div
@@ -351,15 +342,20 @@ useEffect(() => {
       }}
       className="absolute p-4 rounded-2xl border-[1px] backdrop-blur-sm"
       style={{
-        top: bubble.top,
-        [bubble.side]: '20px', // يثبتها على الجوانب (20 بكسل من الحافة)
-        borderColor: bubble.color,
-        boxShadow: `0 0 15px ${bubble.color}44`, // توهج خفيف
-        backgroundColor: `${bubble.color}11`, // لون خلفية شفاف جداً
-        maxWidth: '180px'
+      top: bubble.top,
+      left: bubble.left,// نثبتها كلها يسار
+      borderColor: bubble.color,
+      boxShadow: `0 0 15px ${bubble.color}44`,
+      backgroundColor: `${bubble.color}11`,
+      maxWidth: '200px', // وسعناها شوي عشان النص
+      borderBottomLeftRadius: '4px',
       }}
     >
-      <span className="text-white font-['Cairo'] text-[12px] block text-center leading-tight opacity-80">
+      <span className="text-white font-['Cairo'] text-[12px] block text-center leading-tight opacity-80 z-60"
+      style={{ 
+        textAlign: 'right', // النص يروح يمين
+        direction: 'rtl'    // يضمن ترتيب الكلمات العربية صح
+      }}>
         {bubble.text}
       </span>
     </motion.div>
@@ -445,11 +441,12 @@ const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
 
 
       {/* 2. منطقة الرسائل (Grid تدرجات الألوان) */}
-      <section className="w-full max-w-[1200px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-10 mt-0" dir="rtl items-start">
+      <section className="w-full max-w-[1200px] mr-0 ml-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-10 mt-0" 
+  style={{ direction: 'rtl', justifyItems: 'start' }}>
   {messages.map((msg, index) => (
     <div 
       key={index}
-      className="p-6 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)] flex flex-col text-right"
+      className="p-6 rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)] flex flex-col text-right "
       style={{ 
         background: bubbleColors[index % 5],
         width: '314px', 

@@ -29,5 +29,7 @@ export default function Callback() {
     run();
   }, []);
 
-  return <p className="text-white text-center mt-10">جاري تسجيل الدخول...</p>;
+  return <main className="min-h-screen bg-[#061125] flex items-center justify-center opacity-60 text-white font-['Cairo']">
+        <p className="animate-pulse text-2xl">جاري تسجيل الدخول ...</p>
+      </main>;
 }

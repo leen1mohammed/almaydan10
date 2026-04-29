@@ -872,17 +872,19 @@ export default function CampPage() {
   const dialogStyles = getDialogStyles(systemDialog.variant);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#0a0614] text-white">
+    <div dir="rtl" className="min-h-screen bg-[# #101726
+] text-white">
       <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 sm:gap-5">
           {/* Header */}
-          <div className="relative overflow-hidden rounded-[24px] border border-purple-500/30 bg-[#081126] px-4 py-5 sm:rounded-[28px] sm:px-5 sm:py-6 md:px-8 md:py-8">
+          <div className="relative overflow-hidden rounded-[24px] border border-purple-500/30 
+          bg-[#081126] px-4 py-5 sm:rounded-[28px] sm:px-5 sm:py-6 md:px-8 md:py-1">
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute right-4 top-4 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-3xl sm:right-10 sm:top-8 sm:h-36 sm:w-36" />
               <div className="absolute bottom-0 left-4 h-28 w-28 rounded-full bg-green-400/10 blur-3xl sm:left-10 sm:h-40 sm:w-40" />
             </div>
 
-            <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative z-10 mb-5 mt-3 flex flex-wrap items-center justify-between gap-3">
               {currentUserName && (
                 <button
                   type="button"
@@ -904,7 +906,7 @@ export default function CampPage() {
             </div>
 
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="relative mb-4">
+              <div className="relative mb-5">
                 {campImagePreview || camp?.pic ? (
                   <img
                     src={campImagePreview || camp?.pic || ""}
