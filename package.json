@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -14,10 +14,12 @@
     "@supabase/supabase-js": "^2.97.0",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.9.1",
+    "dotenv": "^17.4.2",
     "framer-motion": "^12.38.0",
     "next": "16.1.6",
     "nodemailer": "^8.0.4",
     "openai": "^6.33.0",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "styled-components": "^6.3.9",
