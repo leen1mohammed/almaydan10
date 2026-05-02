@@ -1,22 +1,6 @@
 "use client";
-import { useState, useEffect } from "react"; // 1. أضفنا الـ hooks
-import { authService } from "@/services/authService"; // 2. استدعاء السيرفس
 
 export default function Footer() {
-  const [role, setRole] = useState(null);
-
-  // 3. جلب دور المستخدم عند تحميل الصفحة
-  useEffect(() => {
-    const fetchRole = async () => {
-      const user = await authService.getCurrentUser();
-      if (user) {
-        const userRole = await authService.getUserRole(user.userName);
-        setRole(userRole);
-      }
-    };
-    fetchRole();
-  }, []);
-
 
   /* روابط الصفحات */
   const links = [
@@ -59,21 +43,20 @@ export default function Footer() {
   ];
 
 
-  
-  const filteredLinks = links.filter(link => {
-    if (link.name === "المعسكر" && role === "admin") {
-      return false;
-    }
-    return true;
-  });
-
   return (
     <footer className="footer">
+
+      {/* الجزء العلوي */}
       <div className="top">
-        {/* 5. نستخدم المصفوفة المفلترة هنا بدلاً من الأصلية */}
+
+        {/* روابط الصفحات */}
         <nav className="links">
-          {filteredLinks.map((link, index) => (
-            <a key={index} href={link.href} className="link">
+          {links.map((link, index) => (
+            <a
+              key={index}
+              href={link.href}
+              className="link"
+            >
               {link.name}
             </a>
           ))}
@@ -120,7 +103,7 @@ export default function Footer() {
         /* الحاوية الرئيسية */
         .footer {
           width: 100%;
-          height: 200px;
+          height: 212px;
 
           background: #061125;
 
