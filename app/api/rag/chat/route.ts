@@ -15,58 +15,65 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1) نحول سؤال المستخدم إلى embedding
-    const queryEmbedding = await createEmbedding(message);
+    // 🔥 1) تحسين السؤال قبل البحث
+    const enhancedQuery = `
+${message}
+حوّل هذا السؤال إلى صيغة بحث معلوماتي دقيقة لاستخراج الإجابة من مستند.
+`;
 
-    // 2) نطلب من Supabase أقرب chunks
+    const queryEmbedding = await createEmbedding(enhancedQuery);
+
+    // 🔥 2) جلب عدد أكبر من النتائج
     const { data: matches, error: matchError } = await supabase.rpc(
       "match_rag_data",
       {
         query_embedding: queryEmbedding,
-        match_count: 5,
+        match_count: 10,
       }
     );
+
+    console.log("Matches:", matches);
 
     if (matchError) {
       console.error("Match error:", matchError);
       return NextResponse.json({ error: matchError.message }, { status: 500 });
     }
 
-    const usefulMatches = (matches || []).filter(
-      (item: any) => item.similarity >= 0.25
-    );
+    // 🔥 3) لا نفلتر بالـ similarity (المودل يقرر)
+    const usefulMatches = (matches || []).slice(0, 8);
 
+    // 🔥 4) بناء context بشكل أنظف
     const context = usefulMatches
       .map((item: any, index: number) => {
-        return `
-[Source ${index + 1}]
-Title: ${item.source_title || "Unknown"}
-Type: ${item.source_type || "Unknown"}
-Similarity: ${item.similarity}
-Content: ${item.content}
-`;
+        return `[${index + 1}] ${item.content}`;
       })
       .join("\n\n");
 
-    // 3) نخلي النموذج يجاوب فقط من السياق
+    // 🔥 5) Prompt أقوى (يمنع الهبد ويستخرج المعلومات)
     const systemPrompt = `
 You are Humaidan, an esports assistant for Almaydan.
 
-Rules:
-- Answer only using the provided context.
-- If the answer is not in the context, say that the information is not available in the provided sources.
-- Do not invent facts.
-- Answer in the same language as the user.
-- Keep the answer clear and helpful.
-- At the end, mention the sources used by title if available.
+STRICT RULES:
+- Use ONLY the provided context
+- DO NOT hallucinate or invent information
+
+IMPORTANT:
+- If the answer exists partially → extract it
+- If the answer is implied → infer it carefully
+- DO NOT say "not available" unless absolutely nothing is found
+
+STYLE:
+- Answer in the same language as the user
+- Be clear and natural
 `;
 
     const userPrompt = `
-User question:
+السؤال:
 ${message}
 
-Retrieved context:
-${context || "No relevant context found."}
+اعتمد فقط على المعلومات التالية للإجابة:
+
+${context || "لا يوجد سياق"}
 `;
 
     const completion = await openai.chat.completions.create({
