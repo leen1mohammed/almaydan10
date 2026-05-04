@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "فقط المشاركين يمكنهم الانضمام" });
     }
 
-    // check already in camp
+    // check if participant already in camp
     const { data: existing } = await supabase
       .from("CampParticipants")
       .select("*")
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // get camp
+    // get the camp
     const { data: camp } = await supabase
       .from("Camp")
       .select("id")
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "الرابط غير صالح" });
     }
 
-    // join
+    // join the camp
     await supabase.from("CampParticipants").insert([
       {
         campId: camp.id,
