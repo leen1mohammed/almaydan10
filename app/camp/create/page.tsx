@@ -8,6 +8,12 @@ import { authService } from "@/services/authService";
 const db = supabase as any;
 
 /* =============================== */
+
+type SearchedUser = {
+  userName: string;
+  Profile: { profilePic: string } | null;
+};
+
 function dbg(label: string, payload?: any) {
   console.groupCollapsed(`🧩 [CAMP] ${label}`);
   if (payload !== undefined) console.log("payload:", payload);
@@ -45,6 +51,11 @@ export default function CreateCampPage() {
 
   const [friendUserName, setFriendUserName] = useState("");
   const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
+  const [friendError, setFriendError] = useState("");
+
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(
@@ -61,6 +72,31 @@ export default function CreateCampPage() {
     return () => URL.revokeObjectURL(url);
   }, [campImage]);
 
+  useEffect(() => {
+    const query = friendUserName.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchDropdownOpen(false);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setSearchLoading(true);
+      const { data, error } = await db
+        .from("Member")
+        .select(`userName, Profile!inner(profilePic)`)
+        .ilike("userName", `%${query}%`)
+        .limit(5);
+      if (!error) {
+        setSearchResults(data || []);
+        setSearchDropdownOpen(true);
+      }
+      setSearchLoading(false);
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [friendUserName]);
+
   async function uploadCampImageViaApi(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
@@ -75,14 +111,26 @@ export default function CreateCampPage() {
     if (!res.ok) throw new Error(json?.error);
     return json.publicUrl;
   }
-
-  function handleAddFriend() {
+  
+  async function handleAddFriend() {
     if (!friendUserName.trim()) return;
-
     if (invitedFriends.includes(friendUserName)) return;
 
-    setInvitedFriends([...invitedFriends, friendUserName.trim()]);
-    setFriendUserName("");
+    // check if user is already in a camp
+    const { data } = await db
+      .from("CampParticipants")
+      .select("campId")
+      .eq("pUserName", friendUserName.trim())
+      .limit(1);
+
+     if (data && data.length > 0) {
+      setFriendError("هذا المستخدم موجود في معسكر بالفعل ⚔️");
+      setTimeout(() => setFriendError(""), 3000);
+      return;
+  }
+
+  setInvitedFriends([...invitedFriends, friendUserName.trim()]);
+  setFriendUserName("");
   }
 
   async function getUserNameOrRedirect() {
@@ -111,7 +159,6 @@ export default function CreateCampPage() {
       const userName = await getUserNameOrRedirect();
       if (!userName) return;
 
-      // ✅ FIXED: check existing camp (بدون maybeSingle)
       const { data: existingRows } = await db
         .from("CampParticipants")
         .select("campId, joinedAt")
@@ -125,16 +172,13 @@ export default function CreateCampPage() {
         return;
       }
 
-      // upload image
       let imageUrl = "";
       if (campImage) {
         imageUrl = await uploadCampImageViaApi(campImage);
       }
 
-      // 🔥 generate invite token
       const inviteToken = generateToken();
 
-      // create camp
       const { data, error } = await db
         .from("Camp")
         .insert([
@@ -153,7 +197,6 @@ export default function CreateCampPage() {
 
       const campId = data.id;
 
-      // join creator
       await db.from("CampParticipants").insert([
         {
           campId,
@@ -162,7 +205,6 @@ export default function CreateCampPage() {
         },
       ]);
 
-      // invite friends
       if (invitedFriends.length > 0) {
         const rows = invitedFriends.map((u) => ({
           campId,
@@ -173,17 +215,17 @@ export default function CreateCampPage() {
         await db.from("CampParticipants").insert(rows);
       }
 
-      // 🔥 generate link
       const link = `${window.location.origin}/camp/join?token=${inviteToken}`;
       setInviteLink(link);
 
       dbg("Invite link generated", link);
 
       alert("تم إنشاء المعسكر بنجاح!");
+      router.push(`/camp/${campId}`);
 
     } catch (e) {
       dbgError("Create Camp Error", e);
-      alert("صار خطأ");
+      alert("حصل خطأ");
     } finally {
       setLoading(false);
     }
@@ -236,7 +278,6 @@ export default function CreateCampPage() {
                 placeholder="اكتب اسم المستخدم هنا ..."
                 className="flex-1 px-4 py-2 rounded-full bg-transparent border border-purple-500"
               />
-
               <button
                 onClick={handleAddFriend}
                 className="px-4 rounded-full bg-purple-600"
@@ -245,11 +286,49 @@ export default function CreateCampPage() {
               </button>
             </div>
 
+            {searchDropdownOpen && searchResults.length > 0 && (
+              <div className="mt-1 bg-[#0b1326] border border-purple-500 rounded-xl overflow-hidden">
+                {searchResults.map((u) => (
+                  <div
+                    key={u.userName}
+                    onClick={() => {
+                      setFriendUserName(u.userName);
+                      setSearchDropdownOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-purple-500/20 cursor-pointer"
+                  >
+                    <img
+                      src={u.Profile?.profilePic || "/images/avatars/avatar1.png"}
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
+                    <span className="text-sm">{u.userName}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {friendError && (
+              <div className="mt-2 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2">
+                {friendError}
+                </div>
+                )}
+
+                <div className="mt-2 text-xs opacity-70"></div>
+
+
             <div className="mt-2 text-xs opacity-70">
               {invitedFriends.map((f) => (
-                <div key={f}>• {f}</div>
-              ))}
-            </div>
+                <div key={f} className="flex items-center justify-between px-2 py-1">
+                  <span>• {f}</span>
+                  <button
+                   onClick={() => setInvitedFriends(invitedFriends.filter((x) => x !== f))}
+                    className="text-red-400 hover:text-red-600 ml-2"
+                     >
+                      ✕
+                      </button>
+                    </div>
+                ))}
+              </div>
+
           </div>
 
           <div className="mb-6">
