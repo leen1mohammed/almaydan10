@@ -88,14 +88,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] border-[#B37FEB] font-[1000] text-[20px] 
-            leading-[24px] text-white transition-all duration-300 animate-pulse hover:animate-none active:scale-95 
-            disabled:opacity-50 disabled:animate-none"
-            style={{
-              background: 'linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)',
-              backgroundBlendMode: 'soft-light, normal',
-              boxShadow: '0 0 15px 2px rgba(41,255,100,0.5), 0 0 30px 5px rgba(41,255,100,0.3)',
-            }}
+            className="btn-base btn-green !w-full !py-[8px] !px-[16px] !font-weight:1000 
+            transition-all duration-300 animate-pulse hover:animate-none active:scale-95 disabled:opacity-50
+             disabled:animate-none"
           >
             {isLoading ? "جاري التحقق..." : "سجل دخول"}
           </button>
@@ -109,9 +104,7 @@ export default function LoginPage() {
                   setLoginError(res.message);
                 }
               }}
-              className="w-full py-[8px] px-[16px] rounded-[30px] border-[1.4px] transition-all 
-              duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
-              border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
+              className="!w-full !py-[8px] !px-[16px] btn-base btn-purple"
             >
               الدخول باستخدام Google
             </button>

@@ -1,37 +1,52 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function JoinCampPage() {
   const params = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    const token = params.get("token");
+    let mounted = true;
 
-    if (!token) return;
+    const joinCamp = async () => {
+      const token = params.get("token");
 
-    fetch("/api/camp/join", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
+      if (!token) return;
+
+      try {
+        const res = await fetch("/api/camp/join", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        const data = await res.json();
+
+        if (!mounted) return;
+
         if (data.campId) {
-          router.push(`/camp/${data.campId}`);
+          router.replace(`/camp/${data.campId}`);
         } else {
-          alert(data.error);
-          router.push("/camp");
+          router.replace("/camp");
         }
-      });
-  }, []);
+      } catch {
+        router.replace("/camp");
+      }
+    };
+
+    joinCamp();
+
+    return () => {
+      mounted = false;
+    };
+  }, [params, router]);
 
   return (
-    <div className="text-white text-center mt-40">
+    <div className="mt-40 text-center text-white">
       جاري الانضمام للمعسكر...
     </div>
   );

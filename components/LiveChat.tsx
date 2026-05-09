@@ -3,7 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+function playSound(src: string, volume = 0.35) {
 
+  if (typeof window === "undefined") return;
+
+  const audio = new Audio(src);
+
+  audio.volume = volume;
+
+  audio.currentTime = 0;
+
+  audio.play().catch(() => {});
+
+}
 type ChatUser = {
   id: string;
   username: string;
@@ -42,11 +54,6 @@ function cn(...classes: Array<string | false | null | undefined>) {
 function sanitizeDisplayName(value?: string | null) {
   const trimmed = (value || "").trim();
   if (!trimmed) return "مستخدم";
-
-  if (trimmed.includes("@")) {
-    return "مستخدم";
-  }
-
   return trimmed;
 }
 
@@ -55,15 +62,12 @@ function getInitial(name?: string | null) {
   return safe.slice(0, 1).toUpperCase() || "U";
 }
 
-function buildAvatarUrl(name?: string | null, avatarUrl?: string | null) {
-  if (avatarUrl && avatarUrl.startsWith("http")) {
+function buildAvatarUrl(_name?: string | null, avatarUrl?: string | null) {
+  if (avatarUrl && avatarUrl.trim() !== "") {
     return avatarUrl;
   }
 
-  const safeName = sanitizeDisplayName(name);
-  const encoded = encodeURIComponent(safeName || "User");
-
-  return `https://ui-avatars.com/api/?name=${encoded}&background=12082A&color=FFFFFF&size=128&bold=true`;
+  return "/images/avatars/avatar1.png";
 }
 
 export default function LiveChat({ matchId, isLive }: LiveChatProps) {
@@ -79,50 +83,57 @@ export default function LiveChat({ matchId, isLive }: LiveChatProps) {
 
   useEffect(() => {
     let mounted = true;
-async function loadUser() {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!mounted) return;
+    async function loadUser() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    if (!user) {
-      setCurrentUser(null);
-      setAuthLoading(false);
-      return;
+        if (!mounted) return;
+
+        if (!user) {
+          setCurrentUser(null);
+          setAuthLoading(false);
+          return;
+        }
+
+        let platformUsername = "";
+        let avatar_url: string | null = null;
+
+        const { data: memberData } = await supabase
+          .from("Member")
+          .select("userName")
+          .eq("email", user.email)
+          .maybeSingle();
+
+        platformUsername =
+          memberData?.userName ||
+          (user.user_metadata?.username as string) ||
+          "مستخدم";
+
+        const { data: profileData } = await supabase
+          .from("Profile")
+          .select("profilePic")
+          .eq("pruserName", platformUsername)
+          .maybeSingle();
+
+        if (profileData?.profilePic) {
+          avatar_url = profileData.profilePic;
+        }
+
+        setCurrentUser({
+          id: user.id,
+          username: platformUsername,
+          avatar_url,
+        });
+      } catch (error) {
+        console.error("auth chat error:", error);
+        setCurrentUser(null);
+      } finally {
+        if (mounted) setAuthLoading(false);
+      }
     }
-
-    const username =
-      (user.user_metadata?.username as string) ||
-      (user.user_metadata?.full_name as string) ||
-      "";
-
-    let avatar_url: string | null = null;
-
-    // 🔥 هنا الربط الجديد مع جدول Profile
-    const { data: profileData } = await supabase
-      .from("Profile")
-      .select("profilePic")
-      .eq("pruserName", username)
-      .maybeSingle();
-
-    if (profileData?.profilePic) {
-      avatar_url = profileData.profilePic;
-    }
-
-    setCurrentUser({
-      id: user.id,
-      username: username || "مستخدم",
-      avatar_url,
-    });
-  } catch (error) {
-    console.error("auth chat error:", error);
-    setCurrentUser(null);
-  } finally {
-    if (mounted) setAuthLoading(false);
-  }
-}
 
     loadUser();
 
@@ -158,7 +169,37 @@ async function loadUser() {
           username: sanitizeDisplayName(msg.username),
         }));
 
-        setMessages(cleaned);
+        const usernames = [
+          ...new Set(cleaned.map((m) => m.username).filter(Boolean)),
+        ];
+
+        let profileMap = new Map<string, string>();
+
+        if (usernames.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("Profile")
+            .select("pruserName, profilePic")
+            .in("pruserName", usernames);
+
+          if (profilesError) {
+            console.error("profiles fetch error:", profilesError);
+          }
+
+          profileMap = new Map(
+            (profilesData || []).map((p) => [
+              p.pruserName,
+              p.profilePic,
+            ])
+          );
+        }
+
+        const enriched = cleaned.map((msg) => ({
+          ...msg,
+          avatar_url:
+            profileMap.get(msg.username) || msg.avatar_url || null,
+        }));
+
+        setMessages(enriched);
       } catch (error) {
         console.error("chat unexpected error:", error);
         if (mounted) setErrorMsg("حدث خطأ أثناء تحميل المحادثة");
@@ -179,11 +220,33 @@ async function loadUser() {
           table: "match_comments",
           filter: `match_id=eq.${matchId}`,
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as ChatMessage;
           const normalizedMessage: ChatMessage = {
             ...newMessage,
             username: sanitizeDisplayName(newMessage.username),
+          };
+
+          let profileAvatar: string | null = null;
+
+          try {
+            const { data: profileData } = await supabase
+              .from("Profile")
+              .select("profilePic")
+              .eq("pruserName", normalizedMessage.username)
+              .maybeSingle();
+
+            if (profileData?.profilePic) {
+              profileAvatar = profileData.profilePic;
+            }
+          } catch (error) {
+            console.error("realtime profile avatar error:", error);
+          }
+
+          const messageWithAvatar: ChatMessage = {
+            ...normalizedMessage,
+            avatar_url:
+              profileAvatar || normalizedMessage.avatar_url || null,
           };
 
           setMessages((prev) => {
@@ -191,16 +254,16 @@ async function loadUser() {
               (m) =>
                 !(
                   m.id.startsWith("temp-") &&
-                  m.user_id === normalizedMessage.user_id &&
-                  m.content === normalizedMessage.content
+                  m.user_id === messageWithAvatar.user_id &&
+                  m.content === messageWithAvatar.content
                 )
             );
 
-            if (withoutTemp.some((m) => m.id === normalizedMessage.id)) {
+            if (withoutTemp.some((m) => m.id === messageWithAvatar.id)) {
               return withoutTemp;
             }
 
-            return [...withoutTemp, normalizedMessage];
+            return [...withoutTemp, messageWithAvatar];
           });
         }
       )
@@ -258,8 +321,10 @@ async function loadUser() {
     };
 
     setMessages((prev) => [...prev, tempMessage]);
-    setInput("");
 
+playSound("/sounds/send.mp3", 0.35);
+
+setInput("");
     const { error } = await supabase.from("match_comments").insert({
       match_id: matchId,
       user_id: currentUser.id,
@@ -308,8 +373,15 @@ async function loadUser() {
         ) : (
           messages.map((msg) => {
             const mine = currentUser?.id === msg.user_id;
-            const displayName = sanitizeDisplayName(msg.username);
-            const avatar = buildAvatarUrl(displayName, msg.avatar_url);
+
+            const displayName = mine
+              ? currentUser?.username || sanitizeDisplayName(msg.username)
+              : sanitizeDisplayName(msg.username);
+
+            const avatar = buildAvatarUrl(
+              displayName,
+              mine ? currentUser?.avatar_url || msg.avatar_url : msg.avatar_url
+            );
 
             return (
               <div
@@ -330,9 +402,7 @@ async function loadUser() {
                       unoptimized
                       onError={(e) => {
                         const target = e.currentTarget as HTMLImageElement;
-                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          displayName
-                        )}&background=12082A&color=FFFFFF&size=128&bold=true`;
+                        target.src = "/images/avatars/avatar1.png";
                       }}
                     />
                   </div>

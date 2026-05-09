@@ -88,7 +88,7 @@ export default function VisitorProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#061125] flex items-center justify-center text-white font-['Cairo']">
+      <main className="min-h-screen bg-[#061125] flex items-center justify-center text-white opacity-60 font-['Cairo']">
         <p className="animate-pulse text-2xl">جاري تحميل الملف الشخصي...</p>
       </main>
     );

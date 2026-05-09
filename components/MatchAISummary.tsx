@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+
 type Props = {
   teamA: string;
   teamB: string;

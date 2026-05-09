@@ -95,7 +95,7 @@ function AvatarModal({
 
           <button
             onClick={() => { onSelect(selected); onClose(); }}
-            className="w-full py-3 rounded-[30px] border-[1.4px] border-[#B37FEB] text-[#0B051E] font-[800] text-[18px] transition-all hover:shadow-[0_0_25px_rgba(41,255,100,0.8)] active:scale-95 font-['Cairo']"
+            className="!w-full !py-3 btn-base btn-green"
             style={{
               background: "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
               backgroundBlendMode: "soft-light, normal",
@@ -281,13 +281,13 @@ export default function ProfilePage() {
         supabase.from("Profile").update({ profilePic }).eq("pruserName", username),
         supabase.from("Admin").update({ contactInfo }).eq("AuserName", username),
       ]);
-      setSaveMsg(profileErr || adminErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+      setSaveMsg(profileErr || adminErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح ");
     } else {
       const [{ error: profileErr }, { error: participantErr }] = await Promise.all([
         supabase.from("Profile").update({ bio, profilePic }).eq("pruserName", username),
         supabase.from("Participant").update({ zoneinfo }).eq("PuserName", username),
       ]);
-      setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح 🔥");
+      setSaveMsg(profileErr || participantErr ? "حدث خطأ أثناء الحفظ ❌" : "تم حفظ التعديلات بنجاح ");
     }
 
     setTimeout(() => setSaveMsg(null), 3000);
@@ -301,8 +301,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#061125] flex items-center justify-center text-white font-['Cairo']">
-        <p className="animate-pulse text-2xl">جاري تحميل الميدان...</p>
+      <main className="min-h-screen bg-[#061125] flex items-center justify-center opacity-60 text-white font-['Cairo']">
+        <p className="animate-pulse text-2xl">جاري تحميل صفحتك الشخصية ...</p>
       </main>
     );
   }
@@ -352,12 +352,8 @@ export default function ProfilePage() {
 
             <div className="flex flex-col items-center gap-2">
               <button onClick={handleSave} disabled={isSaving}
-                className="flex items-center justify-center w-[160px] h-[45px] px-[16px] rounded-[30px] border-[1.4px] border-[#B37FEB] text-[#0B051E] font-[800] text-[16px] transition-all hover:shadow-[0_0_25px_rgba(41,255,100,0.8)] active:scale-95 disabled:opacity-50"
-                style={{
-                  background: "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%), rgba(41,255,100,0.53)",
-                  backgroundBlendMode: "soft-light, normal",
-                  boxShadow: "0 0 20px 2px rgba(41,255,100,0.5)",
-                }}>
+                className="btn-base btn-green scale-110"
+                >
                 {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
               </button>
               {saveMsg && (
@@ -439,7 +435,7 @@ export default function ProfilePage() {
           )}
 
           <button onClick={handleLogout}
-            className="mt-4 w-[245px] h-[58px] bg-[#A62D44]/60 hover:bg-[#A62D44] text-white font-[800] text-[20px] rounded-[30px] border-[1.4px] border-[#B37FEB] shadow-[0_0_15px_rgba(166,45,68,0.5)] transition-all active:scale-95">
+            className="btn-base btn-red scale-140 my-4">
             تسجيل خروج
           </button>
 

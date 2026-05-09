@@ -167,12 +167,7 @@ const handleDelete = async (arenaName) => {
       {/* زر دخول الساحة للأدمن */}
       <button 
         onClick={() => router.push(`/arena/${name}`)}
-        className="flex items-center justify-center w-[150px] py-2 px-4 rounded-[30px] 
-            border-[1.4px] border-[#B37FEB] transition-all duration-500 font-['Cairo'] font-[800] 
-            text-[16px] text-white shadow-[0_0_16px_0_rgba(41,255,100,0.4)] hover:scale-105"
-            style={{
-              background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(41, 255, 100, 0.53)',
-              backgroundBlendMode: 'soft-light, normal'}}
+        className="btn-base btn-green"
       >
         دخول الساحة
       </button>
@@ -184,14 +179,7 @@ const handleDelete = async (arenaName) => {
              handleDelete(name);
           }
         }}
-        className="flex items-center justify-center w-[150px] py-2 px-4 rounded-[30px] 
-    border-[1.4px] transition-all duration-500 font-['Cairo'] font-[800] 
-    text-[16px] text-white shadow-[0_0_16px_0_rgba(255,0,0,0.4)] hover:scale-105"
-  style={{
-    background: 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), rgba(255, 0, 0, 0.53)',
-    backgroundBlendMode: 'soft-light, normal',
-    borderColor: '#FF4D4F'
-  }}
+        className="btn-base btn-red"
       >
         حذف الساحة 🗑️
       </button>

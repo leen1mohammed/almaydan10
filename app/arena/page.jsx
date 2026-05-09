@@ -220,8 +220,9 @@ useEffect(() => {
       {/* يظهر فقط في صفحة "الساحات" */}
       {/* --- منطقة المحتوى (تظهر فقط في "الساحات") --- */}
  {loading ? (
-        <div className="text-white col-span-3 text-center opacity-60 animate-pulse">جاري تحميل الميدان...</div>
-      ) : (
+      <main className=" h-[60vh] bg-[#061125] flex items-center justify-center opacity-60 text-white font-['Cairo']">
+        <p className="animate-pulse text-2xl">جاري تحميل الساحات ...</p>
+      </main>      ) : (
         <>
           {/* --- تبويب الساحات (الكل) --- */}
           {activeTab === 'all' && (
@@ -245,8 +246,8 @@ useEffect(() => {
               </div>
 
               {/* المربع الأخضر */}
-<div className="flex items-center justify-center w-[798px] h-[163px] rounded-[13px] border-[6px] border-[#29FF64] 
-                bg-[#020C1F] shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-40">
+                <div className="flex items-center justify-center w-[798px] h-[163px] rounded-[13px] border-[6px] border-[#29FF64] 
+                                bg-[#020C1F] shadow-[0_42px_61.3px_-30px_rgba(255,39,240,0.30)] my-40">
                 <h2 className="text-[#FFFDFD] text-center text-[40px] leading-[60px]">
                   <span className="font-normal" style={{ textShadow: '0 3px 0 #FF27F0' }}>ماهي الشجاعة</span>
                   <span> </span>

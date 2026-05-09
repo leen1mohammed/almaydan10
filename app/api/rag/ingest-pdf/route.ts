@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST() {
   try {
-    // 1) نجيب الملفات من bucket
     const { data: files, error: listError } = await supabase
       .storage
       .from("rag-files")
@@ -15,7 +14,6 @@ export async function POST() {
     if (listError) {
       return NextResponse.json({ error: listError.message }, { status: 500 });
     }
-
     if (!files || files.length === 0) {
       return NextResponse.json({
         success: true,
@@ -26,15 +24,11 @@ export async function POST() {
     let totalChunks = 0;
     let processedFiles = 0;
 
-    // 2) نمر على كل ملف
     for (const file of files) {
       if (!file.name.endsWith(".pdf")) continue;
 
       const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/rag-files/${file.name}`;
-
       console.log("Processing:", fileUrl);
-
-      // 🛑 نتجنب التكرار
       const { data: existing } = await supabase
         .from("rag_data")
         .select("id")
@@ -46,10 +40,8 @@ export async function POST() {
         continue;
       }
 
-      // 3) نقرأ PDF
       const text = await extractPdfFromUrl(fileUrl);
 
-      // 4) نقسمه
       const chunks = chunkText(text);
 
       console.log(`Chunks for ${file.name}:`, chunks.length);
@@ -73,8 +65,6 @@ export async function POST() {
           embedding
         });
       }
-
-      // 5) نخزن دفعة وحدة (أفضل للأداء)
       const { error: insertError } = await supabase
         .from("rag_data")
         .insert(rows);

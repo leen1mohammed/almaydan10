@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔥 1) تحسين السؤال قبل البحث
     const enhancedQuery = `
 ${message}
 حوّل هذا السؤال إلى صيغة بحث معلوماتي دقيقة لاستخراج الإجابة من مستند.
@@ -23,7 +22,6 @@ ${message}
 
     const queryEmbedding = await createEmbedding(enhancedQuery);
 
-    // 🔥 2) جلب عدد أكبر من النتائج
     const { data: matches, error: matchError } = await supabase.rpc(
       "match_rag_data",
       {
@@ -39,24 +37,18 @@ ${message}
       return NextResponse.json({ error: matchError.message }, { status: 500 });
     }
 
-    // 🔥 3) لا نفلتر بالـ similarity (المودل يقرر)
     const usefulMatches = (matches || []).slice(0, 8);
 
-    // 🔥 4) بناء context بشكل أنظف
     const context = usefulMatches
       .map((item: any, index: number) => {
         return `[${index + 1}] ${item.content}`;
       })
       .join("\n\n");
-
-    // 🔥 5) Prompt أقوى (يمنع الهبد ويستخرج المعلومات)
     const systemPrompt = `
 You are Humaidan, an esports assistant for Almaydan.
-
 STRICT RULES:
 - Use ONLY the provided context
 - DO NOT hallucinate or invent information
-
 IMPORTANT:
 - If the answer exists partially → extract it
 - If the answer is implied → infer it carefully
@@ -66,16 +58,12 @@ STYLE:
 - Answer in the same language as the user
 - Be clear and natural
 `;
-
     const userPrompt = `
 السؤال:
 ${message}
-
 اعتمد فقط على المعلومات التالية للإجابة:
-
 ${context || "لا يوجد سياق"}
 `;
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -84,11 +72,9 @@ ${context || "لا يوجد سياق"}
       ],
       temperature: 0.2,
     });
-
     const answer =
       completion.choices[0]?.message?.content ||
       "ما قدرت أطلع إجابة من المصادر المتوفرة.";
-
     return NextResponse.json({
       answer,
       sources: usefulMatches.map((item: any) => ({

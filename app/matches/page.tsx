@@ -127,7 +127,8 @@ export default function MatchesPage() {
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className="rounded-[30px] border-[1.4px] border-[#B37FEB] px-8 py-3 text-[16px] font-bold text-white transition-all duration-300 shadow-[0_2px_2px_#000,0_0_16px_rgba(146,84,222,0.32)] hover:scale-[1.02]"
+                className="rounded-[30px] border-[1.4px] border-[#B37FEB] px-13 py-2 text-[16px] font-bold text-white transition-all 
+                duration-300 shadow-[0_2px_2px_#000,0_0_16px_rgba(146,84,222,0.32)] hover:scale-[1.02]"
                 style={{
                   background: active
                     ? "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%, rgba(255,255,255,0.80) 94.31%), #12082A"
@@ -197,8 +198,9 @@ export default function MatchesPage() {
         )}
 
         {loading ? (
-          <div className="text-center">جاري التحميل...</div>
-        ) : (
+          <main className="h-[60vh] bg-[#061125] flex items-center justify-center text-white opacity-60 font-['Cairo']">
+            <p className="animate-pulse text-2xl">جاري تحميل المباريات ...</p>
+          </main>        ) : (
           <div className="grid grid-cols-1 place-items-center gap-8 md:grid-cols-2">
             {matches.map((match) => (
               <MatchCard key={match.id} match={match} />

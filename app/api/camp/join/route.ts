@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const currentUser = await authService.getCurrentUser();
 
     if (!currentUser?.email) {
-      return Response.json({ error: "يجب تسجيل الدخول" }, { status: 401 });
+      return Response.json({ error: "لازم تسجل دخول" }, { status: 401 });
     }
 
     // get username
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (!participant) {
-      return Response.json({ error: "فقط المشاركين يمكنهم الانضمام" });
+      return Response.json({ error: "معليش, بس المشاركين يقدرون ينضمون!" });
     }
 
     // check already in camp
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
     if (existing) {
       return Response.json({
-        error: "لديك معسكر بالفعل",
+        error: "عندك معسكر أصلًا",
       });
     }
 
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       .single();
 
     if (!camp) {
-      return Response.json({ error: "الرابط غير صالح" });
+      return Response.json({ error: "الرابط ما يصلح!" });
     }
 
     // join
