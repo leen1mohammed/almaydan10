@@ -141,6 +141,7 @@ export async function POST(req: Request) {
 اكتب النص مباشرة بدون عناوين أو تعداد.
 `.trim();
 
+    // Send request to OpenAI API to generate summary
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -152,29 +153,32 @@ export async function POST(req: Request) {
         input: prompt,
       }),
     });
-
+    // Convert to JSON
     const data = await response.json().catch(() => null);
-
+    // Handle API errors
     if (!response.ok) {
       console.error("FULL OPENAI ERROR:", JSON.stringify(data, null, 2));
-
+    // Return fallback summary if API fails
       return NextResponse.json({
         summary: fallbackSummary,
         source: "fallback",
         note: data?.error?.message || "فشل طلب OpenAI داخل المشروع.",
       });
     }
-
+    // Extract generated summary from response
     const summary =
       data?.output_text ||
       data?.output?.[0]?.content?.[0]?.text ||
       fallbackSummary;
 
+    // Return successful AI-generated summary
     return NextResponse.json({
       summary,
       source: "openai",
       note: "تم إنشاء التلخيص عبر OpenAI.",
     });
+
+    // Handle unexpected errors
   } catch (error) {
     console.error("ai-summary route error:", error);
 

@@ -63,17 +63,20 @@ export default function MatchesPage() {
     checkAdmin();
   }, []);
 
-  // جلب المباريات
+// Fetch matches based on selected filter (LIVE, UPCOMING, FINISHED)
   useEffect(() => {
+    // Map internal match status to API query values
     const tabMap: Record<MatchStatus, "live" | "upcoming" | "past"> = {
       LIVE: "live",
       UPCOMING: "upcoming",
       FINISHED: "past",
     };
 
-    const tab = tabMap[filter];
+  // Determine current tab based on selected filter
+  const tab = tabMap[filter];
   const requestedSize = filter === "FINISHED" ? 20 : 30;
 
+  // Update URL parameters to reflect current filter (for navigation/state)
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("tab", tab);
@@ -83,7 +86,8 @@ export default function MatchesPage() {
 
     setLoading(true);
     setErrorMsg(null);
-
+    
+    // Send request to backend API to fetch matches
     fetch(
       `/api/matches?tab=${tab}&sa=${onlySaudi ? "1" : "0"}&size=${requestedSize}`
     )
@@ -107,7 +111,7 @@ export default function MatchesPage() {
         setMatches([]);
       })
       .finally(() => setLoading(false));
-  }, [filter, onlySaudi]);
+  }, [filter, onlySaudi]);  // Re-run when filter or Saudi toggle changes
 
   const tabs: { id: MatchStatus; label: string }[] = [
     { id: "FINISHED", label: "السابقة" },
