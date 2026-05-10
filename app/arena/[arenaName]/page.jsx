@@ -34,7 +34,6 @@ export default function ArenaDetailsPage() {
   
   
 
-  // مصفوفة الألوان الخمسة اللي طلبتيها لمربعات الرسائل
   const bubbleColors = [
     'rgba(255, 137, 27, 0.33)', // برتقالي
     'rgba(41, 255, 100, 0.20)', // أخضر نيون

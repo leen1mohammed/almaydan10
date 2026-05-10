@@ -124,7 +124,7 @@ export default function CreateCampPage() {
       .limit(1);
 
      if (data && data.length > 0) {
-      setFriendError("هذا المستخدم موجود في معسكر بالفعل ⚔️");
+      setFriendError("هذا المستخدم موجود في معسكر بالفعل ");
       setTimeout(() => setFriendError(""), 3000);
       return;
   }

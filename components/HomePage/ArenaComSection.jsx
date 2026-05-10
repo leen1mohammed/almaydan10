@@ -112,12 +112,12 @@ const TrackBase = styled.div`
 `;
  
 const TrackLeft = styled(TrackBase)`
-  animation: ${moveLeft} 14s linear infinite;
+  animation: ${moveLeft} 20s linear infinite;
   animation-delay: 0s;
 `;
  
 const TrackRight = styled(TrackBase)`
-  animation: ${moveRight} 14s linear infinite;
+  animation: ${moveRight} 20s linear infinite;
   animation-delay: 0s;
 `;
  

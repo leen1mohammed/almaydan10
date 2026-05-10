@@ -275,13 +275,13 @@ export default function HomidanPage() {
     }
 
     try {
-      const res = await fetch("/api/humaidan", {
+      const res = await fetch("/api/rag/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: nextMessages,
+          message: text,
         }),
       });
 

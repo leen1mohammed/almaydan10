@@ -1,32 +1,38 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
 
-export default function CampEntryPage() {
+export default function CampPage() {
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
+  const [hasCamp, setHasCamp] = useState(false);
+
   useEffect(() => {
-    const routeUser = async () => {
+    let mounted = true;
+
+    const checkCamp = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
-        console.log("currentUser:", currentUser); // ← debug
 
         if (!currentUser?.email) {
           router.replace("/login");
           return;
         }
 
-        let userName = (currentUser as any)?.userName as string | undefined;
+        let userName = (currentUser as any)?.userName;
+
         if (!userName) {
-          const { data: memberData } = await supabase
+          const { data } = await supabase
             .from("Member")
             .select("userName")
             .eq("email", currentUser.email)
             .single();
-          userName = memberData?.userName;
+
+          userName = data?.userName;
         }
 
         if (!userName) {
@@ -34,47 +40,80 @@ export default function CampEntryPage() {
           return;
         }
 
-        console.log("userName:", userName); // ← debug
-
-        // فقط Participant
-        const { data: participantRow, error: participantError } = await supabase
+        const { data: participant } = await supabase
           .from("Participant")
           .select("PuserName")
           .eq("PuserName", userName)
           .maybeSingle();
 
-        console.log("participantRow:", participantRow); // ← debug
-        console.log("participantError:", participantError); // ← debug
-
-        if (!participantRow) {
+        if (!participant) {
           router.replace("/");
           return;
         }
 
-        // هل عنده Camp؟
         const { data: membership } = await supabase
           .from("CampParticipants")
           .select("campId")
           .eq("pUserName", userName)
           .maybeSingle();
 
+        if (!mounted) return;
+
         if (membership?.campId) {
           router.replace(`/camp/${membership.campId}`);
-        } else {
-          router.replace("/camp/empty");
+          return;
         }
-      } catch (e) {
-        console.error(e);
+
+        setHasCamp(false);
+      } catch {
         router.replace("/");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    routeUser();
+    checkCamp();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
-  return (
-    <main className="min-h-screen bg-[#061125] flex items-center justify-center opacity-60 text-white font-['Cairo']">
-        <p className="animate-pulse text-2xl">جاري تجهيز المعسكر ...</p>
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#061125] flex items-center justify-center text-white">
+        <p className="animate-pulse text-2xl">
+          جاري تجهيز المعسكر ...
+        </p>
       </main>
-  );
+    );
+  }
+
+  if (!hasCamp) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center px-6">
+            <p className="text-2xl text-white/30 mb-8">
+              لا يوجد لديك معسكر حتى الآن..
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push("/camp/create")}
+              className="px-10 py-3 rounded-full bg-purple-700 hover:bg-purple-600 transition shadow-lg"
+            >
+              أنشئ معسكرك
+            </button>
+          </div>
+        </div>
+
+        <div className="h-8" />
+      </div>
+    );
+  }
+
+  return null;
 }
