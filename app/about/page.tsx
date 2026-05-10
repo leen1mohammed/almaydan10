@@ -198,7 +198,7 @@ export default function AboutPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="عنوان الفضفضة..."
-                    className="h-[54px] w-full rounded-[14px] border border-[#3A2157] bg-[linear-gradient(180deg,rgba(255,255,255,0.26)_0%,rgba(215,142,255,0.22)_100%)] px-5 text-right text-[clamp(0.85rem,1vw,1rem)] text-[#2E193F] shadow-[0_10px_25px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.25)] outline-none placeholder:text-[#4A2A63]/80"
+                    className="h-[54px] w-full rounded-[14px] border border-[#3A2157] bg-[linear-gradient(180deg,rgba(255,255,255,0.26)_0%,rgba(215,142,255,0.22)_100%)] px-5 text-right text-[clamp(0.85rem,1vw,1rem)] text-white shadow-[0_10px_25px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.25)] outline-none placeholder:text-white/80"
                     style={{ fontFamily: "var(--font-cairo)" }}
                   />
 
@@ -209,7 +209,7 @@ export default function AboutPage() {
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="فضفض لنا..."
-                      className="h-[105px] w-full resize-none bg-transparent text-right text-[clamp(0.85rem,1vw,1rem)] text-[#2E193F] outline-none placeholder:text-[#4A2A63]/80"
+                      className="h-[105px] w-full resize-none bg-transparent text-right text-[clamp(0.85rem,1vw,1rem)] text-[#2E193F] outline-none placeholder:text-white/80"
                       style={{ fontFamily: "var(--font-cairo)" }}
                     />
 

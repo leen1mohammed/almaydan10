@@ -313,6 +313,7 @@ useEffect(() => {
           <label className="text-white font-['Cairo'] block mb-2 mr-2">اسم الساحة</label>
           <input 
             type="text" 
+            required
             className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white focus:border-[#B37FEB] outline-none transition-all"
             placeholder="مثلاً: محبين Valorant"
             onChange={(e) => setNewArena({...newArena, name: e.target.value})}
@@ -323,6 +324,7 @@ useEffect(() => {
           <label className="text-white font-['Cairo'] block mb-2 mr-2">وصف الساحة </label>
           <input 
             type="text" 
+            required
             className="w-full bg-[#040F23] border border-gray-700 rounded-xl p-3 text-white
              focus:border-[#B37FEB] outline-none transition-all"
             placeholder="اكتب وصف الساحة هنا..."
