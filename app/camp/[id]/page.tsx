@@ -45,62 +45,18 @@ type SystemDialogState = {
   isLoading?: boolean;
 };
 
-/* ===============================
-   Debug helpers (simple)
-================================ */
-function dbg(label: string, payload?: any) {
-  console.groupCollapsed(`🧩 [CAMP] ${label}`);
-  if (payload !== undefined) console.log("payload:", payload);
-  console.groupEnd();
-}
-
-function dbgError(label: string, error: any, payload?: any) {
-  console.groupCollapsed(`🔴 [CAMP ERROR] ${label}`);
-  console.error("error:", {
-    code: error?.code,
-    message: error?.message,
-    details: error?.details,
-    hint: error?.hint,
-    status: error?.status,
-  });
-  if (payload !== undefined) console.error("payload:", payload);
-  console.groupEnd();
-}
-
 async function sb<T>(
   label: string,
   query: Promise<{ data: T; error: any }>
 ): Promise<{ data: T; error: any }> {
-  dbg(`${label} (start)`);
-  const res = await query;
-  if (res.error) dbgError(label, res.error);
-  else dbg(`${label} (ok)`, res.data);
-  return res;
-}
 
-function getDialogStyles(variant: DialogVariant) {
-  switch (variant) {
-    case "success":
-      return {
-        badge: "bg-green-500/15 text-green-200 border-green-400/30",
-        button: "bg-green-600 hover:bg-green-500",
-      };
-    case "error":
-      return {
-        badge: "bg-red-500/15 text-red-200 border-red-400/30",
-        button: "bg-red-600 hover:bg-red-500",
-      };
-    case "confirm":
-      return {
-        badge: "bg-amber-500/15 text-amber-200 border-amber-400/30",
-        button: "bg-purple-600 hover:bg-purple-500",
-      };
-    default:
-      return {
-        badge: "bg-purple-500/15 text-purple-200 border-purple-400/30",
-        button: "bg-purple-600 hover:bg-purple-500",
-      };
+  const res = await query;
+
+  if (res.error) {
+    console.error(`[${label}]`, res.error);
   }
+
+  return res;
 }
 
 export default function CampPage() {
@@ -122,21 +78,17 @@ export default function CampPage() {
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [isMembersOpen, setIsMembersOpen] = useState(false);
 
-  // إضافة مشاركين
   const [newParticipantUserName, setNewParticipantUserName] = useState("");
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
 
-  // مغادرة المعسكر
   const [isLeavingCamp, setIsLeavingCamp] = useState(false);
 
-  // تعديل بيانات المعسكر
   const [isEditingCampInfo, setIsEditingCampInfo] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
   const [isSavingCampInfo, setIsSavingCampInfo] = useState(false);
   const [selectedCampImageFile, setSelectedCampImageFile] = useState<File | null>(null);
   const [campImagePreview, setCampImagePreview] = useState("");
 
-  // نافذة النظام بدل alert / confirm
   const [systemDialog, setSystemDialog] = useState<SystemDialogState>({
     isOpen: false,
     title: "",
@@ -230,19 +182,15 @@ export default function CampPage() {
   }
 
   async function getUserNameOrRedirect() {
-    dbg("getUserNameOrRedirect()");
 
     const currentUser = await authService.getCurrentUser();
-    dbg("authService.getCurrentUser()", currentUser);
 
     if (!currentUser?.email) {
-      dbg("No email -> redirect /login");
       router.push("/login");
       return null;
     }
 
     let userName = (currentUser as any)?.userName as string | undefined;
-    dbg("Try userName from currentUser", { userName });
 
     if (!userName) {
       const { data: memberData, error: memberErr } = await sb(
@@ -259,16 +207,15 @@ export default function CampPage() {
     }
 
     if (!userName) {
-      dbg("userName missing -> redirect /login");
       router.push("/login");
       return null;
     }
 
-    dbg("Resolved userName", { userName });
     return userName;
   }
 
   async function assertMembershipOrRedirect(cId: number, userName: string) {
+
     const { data: membership, error: membershipError } = await sb(
       "CampParticipants: membership check",
       db
@@ -279,14 +226,37 @@ export default function CampPage() {
         .maybeSingle()
     );
 
-    if (membershipError || !membership) {
-      dbg("Not member -> redirect /camp", { cId, userName });
-      openInfoDialog("غير مسموح", "لا تملك صلاحية الوصول إلى هذا المعسكر.", "error");
-      router.push("/camp");
+    if (membershipError) {
+
+      console.error("Membership Error:", membershipError);
+
+      openInfoDialog(
+        "خطأ في التحقق",
+        "حدث خطأ أثناء التحقق من العضوية.",
+        "error"
+      );
+
       return false;
     }
 
-    dbg("Membership OK", membership);
+    if (!membership) {
+
+      console.log("NO MEMBERSHIP FOUND", {
+        cId,
+        userName,
+      });
+
+      openInfoDialog(
+        "غير مسموح",
+        "لا تملك صلاحية الوصول إلى هذا المعسكر.",
+        "error"
+      );
+
+      router.push("/camp");
+
+      return false;
+    }
+
     return true;
   }
 
@@ -754,7 +724,7 @@ export default function CampPage() {
     const confirmed = await openConfirmDialog(
       "تأكيد المغادرة",
       isOwner
-        ? "هل أنتِ متأكدة من مغادرة المعسكر؟ إذا بقي أعضاء فسيتم نقل الملكية، وإذا كنتِ آخر عضو فسيتم حذف المعسكر بالكامل."
+        ? "هل أنت متأكد من مغادرة المعسكر؟ إذا بقي أعضاء فسيتم نقل الملكية، وإذا كنت آخر عضو فسيتم حذف المعسكر بالكامل."
         : "هل أنتِ متأكدة من مغادرة المعسكر؟"
     );
 
@@ -764,7 +734,6 @@ export default function CampPage() {
     dbg("handleLeaveCamp() start", { campId, currentUserName, isOwner });
 
     try {
-      // حذف العضو الخارج من CampParticipants مباشرة
       const { error: deleteMembershipError } = await sb(
         "CampParticipants: delete current user membership",
         db.from("CampParticipants").delete().eq("campId", campId).eq("pUserName", currentUserName)
@@ -775,7 +744,6 @@ export default function CampPage() {
         return;
       }
 
-      // تحديث القائمة فورًا محليًا
       setMembers((prev) => prev.filter((m) => m.pUserName !== currentUserName));
 
       const { data: remainingMembersData, error: remainingMembersError } = await sb(
@@ -855,7 +823,6 @@ export default function CampPage() {
       openInfoDialog("تمت المغادرة", "تمت مغادرة المعسكر بنجاح.", "success");
       router.push("/camp");
     } catch (e) {
-      dbgError("handleLeaveCamp() unexpected error", e);
       openInfoDialog("خطأ", "حدثت مشكلة أثناء مغادرة المعسكر.", "error");
     } finally {
       setIsLeavingCamp(false);
