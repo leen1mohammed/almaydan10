@@ -179,7 +179,7 @@ const handleDelete = async (arenaName) => {
              handleDelete(name);
           }
         }}
-        className="btn-base btn-red"
+        className="btn-base btn-red !w-[155px]"
       >
         حذف الساحة 🗑️
       </button>
