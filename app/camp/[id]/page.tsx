@@ -872,8 +872,7 @@ export default function CampPage() {
   const dialogStyles = getDialogStyles(systemDialog.variant);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[# #101726
-] text-white">
+    <div dir="rtl" className="min-h-screen bg-[#101726] text-white">
       <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 sm:gap-5">
           {/* Header */}
@@ -1171,9 +1170,15 @@ export default function CampPage() {
                         <div
                           className={`w-fit min-w-[110px] rounded-2xl px-3 py-3 shadow-[0_8px_25px_rgba(0,0,0,0.22)] sm:min-w-[120px] sm:px-4 ${
                             isMine
-                              ? "rounded-bl-md bg-[#B794F6] text-white"
+                              ? "rounded-bl-md text-white"
                               : "rounded-br-md border border-white/10 bg-[#1b1330]/95 text-white"
                           }`}
+                          style={isMine ? {
+                            background: "linear-gradient(135deg, rgba(114, 46, 209, 0.9) 0%, rgba(18, 8, 42, 0.95) 100%)",
+                            border: "1.5px solid #B37FEB",
+                            boxShadow: "0 0 20px rgba(114, 46, 209, 0.4), inset 0 0 10px rgba(41, 255, 100, 0.1)",
+                          } : undefined}
+
                         >
                           {!isSameSenderAsPrev && (
                             <div
