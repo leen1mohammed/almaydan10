@@ -83,11 +83,11 @@ export default function Navbar() {
         {/* ======================================================= */}
         <div className="hidden lg:flex items-center justify-center justify-self-center text-[14px] font-normal leading-[16px]">
           <Link
-            href="/matches"
-            className="hover:text-esport-primary transition-colors whitespace-nowrap"
-          >
-            جدول المباريات
-          </Link>
+  href="/matches?tab=upcoming&sa=0"
+  className="hover:text-esport-primary transition-colors whitespace-nowrap"
+>
+  جدول المباريات
+</Link>
 
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
 
