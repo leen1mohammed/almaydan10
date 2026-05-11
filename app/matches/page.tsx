@@ -133,37 +133,16 @@ export default function MatchesPage() {
     }, 3000);
   }
 
-<<<<<<< HEAD
-      console.log("USERNAME:", username);
-
-      if (user.email === "janonah1166@gmail.com") {
-        setIsAdmin(true);
-      }
-    }
-
-    checkAdmin();
-  }, []);
-
-// Fetch matches based on selected filter (LIVE, UPCOMING, FINISHED)
-  useEffect(() => {
-    // Map internal match status to API query values
-=======
   async function loadMatches() {
->>>>>>> 6d47f6d (final project updates)
     const tabMap: Record<MatchStatus, "live" | "upcoming" | "past"> = {
       LIVE: "live",
       UPCOMING: "upcoming",
       FINISHED: "past",
     };
 
-<<<<<<< HEAD
-  // Determine current tab based on selected filter
+
   const tab = tabMap[filter];
   const requestedSize = filter === "FINISHED" ? 20 : 30;
-=======
-    const tab = tabMap[filter];
-    const requestedSize = filter === "FINISHED" ? 20 : 30;
->>>>>>> 6d47f6d (final project updates)
 
   // Update URL parameters to reflect current filter (for navigation/state)
     if (typeof window !== "undefined") {
@@ -175,44 +154,15 @@ export default function MatchesPage() {
 
     setLoading(true);
     setErrorMsg(null);
-<<<<<<< HEAD
-    
-    // Send request to backend API to fetch matches
-    fetch(
-      `/api/matches?tab=${tab}&sa=${onlySaudi ? "1" : "0"}&size=${requestedSize}`
-    )
-      .then(async (r) => {
-        const json = await r.json().catch(() => null);
-
-        if (!r.ok) {
-          const msg = json?.error || "Failed to fetch matches";
-          throw new Error(msg);
-=======
 
     try {
       const res = await fetch(
         `/api/matches?tab=${tab}&sa=${onlySaudi ? "1" : "0"}&size=${requestedSize}`,
         {
           cache: "no-store",
->>>>>>> 6d47f6d (final project updates)
         }
       );
 
-<<<<<<< HEAD
-        return json;
-      })
-      .then((json) => {
-        const list = Array.isArray(json?.matches) ? json.matches : [];
-        setMatches(list);
-      })
-      .catch((e) => {
-        console.error("Matches UI fetch error:", e);
-        setErrorMsg(e instanceof Error ? e.message : "Unknown error");
-        setMatches([]);
-      })
-      .finally(() => setLoading(false));
-  }, [filter, onlySaudi]);  // Re-run when filter or Saudi toggle changes
-=======
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -278,7 +228,6 @@ export default function MatchesPage() {
   useEffect(() => {
     loadMatches();
   }, [filter, onlySaudi]);
->>>>>>> 6d47f6d (final project updates)
 
   async function uploadTeamLogo(file: File, team: "a" | "b") {
     const fileExt = file.name.split(".").pop();
