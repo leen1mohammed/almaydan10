@@ -26,10 +26,9 @@ export default function RegisterPage() {
     const result = await registerUser(email, password, userName, fullName);
 
     if (result.success) {
-      // ✅ redirect to profile?firstLogin=true directly (auto signed-in)
       router.push(result.redirectTo);
     } else {
-      alert("فيه مشكلة: " + result.message);
+      alert("error" + result.message);
     }
     setIsLoading(false);
   };
@@ -57,9 +56,9 @@ export default function RegisterPage() {
 
   const handleEmailChange = async (val) => {
   setEmail(val);
-  // نتحقق فقط إذا كان الشكل إيميل صحيح @
+  // check email is valid or not
   if (val.includes('@') && val.includes('.')) {
-    const isTaken = await checkEmail(val); // هذي الدالة لازم تكون في الـ authService
+    const isTaken = await checkEmail(val);
     if (isTaken) {
       setEmailError('هذا البريد مسجل مسبقاً، جرب واحد ثاني او سجل دخولك');
     } else {

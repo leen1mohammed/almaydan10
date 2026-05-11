@@ -58,9 +58,7 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
     value.includes("cs-go") ||
     value.includes("cs2") ||
     value === "csgo"
-  ) {
-    return "csgo";
-  }
+  ) return "csgo";
 
   if (value.includes("valorant")) return "valorant";
 
@@ -68,14 +66,9 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
     value.includes("league of legends") ||
     value === "lol" ||
     value === "league-of-legends"
-  ) {
-    return "league-of-legends";
-  }
+  ) return "league-of-legends";
 
-  if (value.includes("dota") || value === "dota2" || value === "dota-2") {
-    return "dota2";
-  }
-
+  if (value.includes("dota") || value === "dota2" || value === "dota-2") return "dota2";
   if (value.includes("pubg")) return "pubg";
   if (value.includes("overwatch")) return "overwatch";
 
@@ -83,14 +76,9 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
     value.includes("rocket league") ||
     value === "rocketleague" ||
     value === "rocket-league"
-  ) {
-    return "rocketleague";
-  }
+  ) return "rocketleague";
 
-  if (value.includes("call of duty") && value.includes("warzone")) {
-    return "warzone";
-  }
-
+  if (value.includes("call of duty") && value.includes("warzone")) return "warzone";
   if (value.includes("call of duty")) return "call-of-duty";
 
   if (
@@ -99,20 +87,12 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
     value === "fc24" ||
     value === "ea-sports-fc-24" ||
     value === "fifa"
-  ) {
-    return "fc24";
-  }
+  ) return "fc24";
 
   if (value === "kog") return "kog";
   if (value === "starcraft-2" || value.includes("starcraft")) return "starcraft-2";
 
   return "default";
-}
-
-function normalizeStatus(tab: string) {
-  if (tab === "live") return "running";
-  if (tab === "past") return "finished";
-  return "not_started";
 }
 
 function toCardStatus(status?: string | null) {
@@ -151,8 +131,6 @@ function isSaudiTeam(name?: string) {
 }
 
 function isWithinDateWindow(dateString: string, tab: string) {
-  if (tab === "past") return true;
-
   if (!dateString) return false;
 
   const matchDate = new Date(dateString);
@@ -161,10 +139,13 @@ function isWithinDateWindow(dateString: string, tab: string) {
   const now = new Date();
 
   if (tab === "upcoming") {
-    const futureLimit = new Date(
-      now.getTime() + 30 * 24 * 60 * 60 * 1000
-    );
+    const futureLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     return matchDate >= now && matchDate <= futureLimit;
+  }
+
+  if (tab === "past") {
+    const pastLimit = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return matchDate <= now && matchDate >= pastLimit;
   }
 
   if (tab === "live") return true;
@@ -184,38 +165,48 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tab = searchParams.get("tab") || "upcoming";
     const onlySaudi = searchParams.get("sa") === "1";
-    const size = Number(searchParams.get("size") || "100");
 
-    const status = normalizeStatus(tab);
-    const sortValue = tab === "past" ? "-begin_at" : "begin_at";
+    const now = new Date();
+    const nowIso = now.toISOString();
 
-    const nowIso = new Date().toISOString();
-const pastLimitIso = new Date(
-  Date.now() - 30 * 24 * 60 * 60 * 1000
-).toISOString();
+    const futureLimitIso = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-const url =
-  tab === "past"
-    ? `https://api.pandascore.co/matches` +
-      `?filter[status]=finished` +
-      `&range[begin_at]=${pastLimitIso},${nowIso}` +
-      `&sort=-begin_at` +
-      `&page[size]=${Math.min(Math.max(size, 1), 100)}`
-    : `https://api.pandascore.co/matches` +
-      `?filter[status]=${status}` +
-      `&sort=${sortValue}` +
-      `&page[size]=${Math.min(Math.max(size, 1), 100)}`;
+    const pastLimitIso = new Date(
+      now.getTime() - 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-    
-    
+    let url = "";
 
-    // ===== UPCOMING / LIVE =====
+    if (tab === "past") {
+      url =
+        `https://api.pandascore.co/matches` +
+        `?filter[status]=finished` +
+        `&range[begin_at]=${pastLimitIso},${nowIso}` +
+        `&sort=-begin_at` +
+        `&page[size]=100`;
+    } else if (tab === "upcoming") {
+      url =
+        `https://api.pandascore.co/matches` +
+        `?filter[status]=not_started` +
+        `&range[begin_at]=${nowIso},${futureLimitIso}` +
+        `&sort=begin_at` +
+        `&page[size]=100`;
+    } else {
+      url =
+        `https://api.pandascore.co/matches` +
+        `?filter[status]=running` +
+        `&sort=begin_at` +
+        `&page[size]=100`;
+    }
+
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${API_KEY}`,
         Accept: "application/json",
       },
-      next: { revalidate: 30 },
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -274,6 +265,7 @@ const url =
 
       return {
         id: String(match.id),
+        source: "api" as const,
         status: toCardStatus(match.status),
         game_type: normalizedGameType,
         start_at: startAt,
@@ -294,39 +286,36 @@ const url =
           typeof match.number_of_games === "number"
             ? match.number_of_games
             : undefined,
-        stream_url:
-          match.official_stream_url || match.stream_url || undefined,
+        stream_url: match.official_stream_url || match.stream_url || undefined,
         streams_list: Array.isArray(match.streams_list)
           ? match.streams_list
           : [],
       };
     });
+
     if (tab === "past") {
-  const idsWithoutDate = matches
-    .filter((m) => !m.start_at)
-    .map((m) => String(m.id));
+      const idsWithoutDate = matches
+        .filter((m) => !m.start_at)
+        .map((m) => String(m.id));
 
-  if (idsWithoutDate.length > 0) {
-    const { data: cached, error } = await supabase
-      .from("match_time_cache")
-      .select("match_id, start_at");
+      if (idsWithoutDate.length > 0) {
+        const { data: cached, error } = await supabase
+          .from("match_time_cache")
+          .select("match_id, start_at");
 
-    if (!error && cached) {
-      matches = matches.map((m) => {
-        if (m.start_at) return m;
+        if (!error && cached) {
+          matches = matches.map((m) => {
+            if (m.start_at) return m;
 
-        const found = cached.find(
-          (c) => String(c.match_id) === String(m.id)
-        );
+            const found = cached.find(
+              (c) => String(c.match_id) === String(m.id)
+            );
 
-        return found?.start_at
-          ? { ...m, start_at: found.start_at }
-          : m;
-      });
+            return found?.start_at ? { ...m, start_at: found.start_at } : m;
+          });
+        }
+      }
     }
-  }
-
-}
 
     matches = matches.filter((match) => isWithinDateWindow(match.start_at, tab));
 
@@ -342,6 +331,114 @@ const url =
 
     if (tab === "live") {
       matches = matches.filter((match) => match.status === "LIVE");
+    }
+
+    const { data: localRows, error: localError } = await supabase
+      .from("app_matches")
+      .select("*");
+
+    if (!localError && localRows) {
+      const deletedApiIds = new Set(
+        localRows
+          .filter((row) => row.is_deleted)
+          .flatMap((row) => [
+            row.external_id ? String(row.external_id) : "",
+            row.id ? String(row.id) : "",
+          ])
+          .filter(Boolean)
+      );
+
+      matches = matches.filter((match) => {
+        const matchId = String(match.id);
+        return !deletedApiIds.has(matchId);
+      });
+
+      const manualMatches = localRows
+        .filter((row) => row.source === "manual" && !row.is_deleted)
+        .map((row) => {
+          const manualStartAt = row.start_at || "";
+          const manualDate = manualStartAt ? new Date(manualStartAt) : null;
+          const now = new Date();
+
+          let computedStatus = row.status as
+            | "UPCOMING"
+            | "LIVE"
+            | "FINISHED";
+
+          if (manualDate && !Number.isNaN(manualDate.getTime())) {
+            if (row.status !== "LIVE" && manualDate < now) {
+              computedStatus = "FINISHED";
+            }
+          }
+
+          return {
+            id: String(row.id),
+            source: "manual" as const,
+            status: computedStatus,
+            game_type: row.game_type || "default",
+            start_at: manualStartAt,
+            tournament: {
+              id: `manual-${row.id}`,
+              name: row.tournament_name || "Unknown Tournament",
+              logo_url: undefined,
+            },
+            teams: [
+              {
+                id: `manual-a-${row.id}`,
+                name: row.team_a_name || "Team A",
+                logo_url: row.team_a_logo || "",
+                score: Number(row.team_a_score || 0),
+              },
+              {
+                id: `manual-b-${row.id}`,
+                name: row.team_b_name || "Team B",
+                logo_url: row.team_b_logo || "",
+                score: Number(row.team_b_score || 0),
+              },
+            ] as [
+              { id?: string; name: string; logo_url: string; score: number },
+              { id?: string; name: string; logo_url: string; score: number }
+            ],
+            stream_url: row.stream_url || undefined,
+            streams_list: row.stream_url
+              ? [
+                  {
+                    raw_url: row.stream_url,
+                    embed_url: row.stream_url,
+                    language: "ar",
+                    main: true,
+                    official: false,
+                  },
+                ]
+              : [],
+          };
+        });
+const filteredManualMatches = manualMatches.filter((match) => {
+  if (!match.start_at) return false;
+
+  const matchDate = new Date(match.start_at);
+  const now = new Date();
+
+  // اليدوية السابقة تختفي بعد 24 ساعة
+  if (tab === "past" && match.status === "FINISHED") {
+    const oneDayAgo = new Date(
+      now.getTime() - 1 * 24 * 60 * 60 * 1000
+    );
+
+    return matchDate >= oneDayAgo && matchDate <= now;
+  }
+
+  if (!isWithinDateWindow(match.start_at, tab)) return false;
+
+  if (tab === "live") return match.status === "LIVE";
+  if (tab === "upcoming") return match.status === "UPCOMING";
+  if (tab === "past") return match.status === "FINISHED";
+
+  return true;
+});
+      matches = [...filteredManualMatches, ...matches] as typeof matches;
+    } else if (localError) {
+      console.error("app_matches fetch error:", localError);
     }
 
     return NextResponse.json({

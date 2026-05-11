@@ -59,6 +59,45 @@ async function sb<T>(
   return res;
 }
 
+function dbg(label: string, payload?: any) {
+  console.groupCollapsed(`🧩 [CAMP] ${label}`);
+  if (payload !== undefined) console.log("payload:", payload);
+  console.groupEnd();
+}
+
+function dbgError(label: string, error: any, payload?: any) {
+  console.groupCollapsed(`🔴 [CAMP ERROR] ${label}`);
+  console.error(error);
+  if (payload !== undefined) console.error(payload);
+  console.groupEnd();
+}
+
+function getDialogStyles(variant: DialogVariant) {
+  switch (variant) {
+    case "success":
+      return {
+        badge: "bg-green-500/15 text-green-200 border-green-400/30",
+        button: "bg-green-600 hover:bg-green-500",
+      };
+    case "error":
+      return {
+        badge: "bg-red-500/15 text-red-200 border-red-400/30",
+        button: "bg-red-600 hover:bg-red-500",
+      };
+    case "confirm":
+      return {
+        badge: "bg-amber-500/15 text-amber-200 border-amber-400/30",
+        button: "bg-purple-600 hover:bg-purple-500",
+      };
+    default:
+      return {
+        badge: "bg-purple-500/15 text-purple-200 border-purple-400/30",
+        button: "bg-purple-600 hover:bg-purple-500",
+      };
+  }
+}
+
+
 export default function CampPage() {
   const params = useParams();
   const router = useRouter();
@@ -77,9 +116,10 @@ export default function CampPage() {
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [isMembersOpen, setIsMembersOpen] = useState(false);
-
   const [newParticipantUserName, setNewParticipantUserName] = useState("");
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
+  const [participantSearchResults, setParticipantSearchResults] = useState<{userName: string; profilePic?: string | null}[]>([]);
+  const [participantSearchOpen, setParticipantSearchOpen] = useState(false);
 
   const [isLeavingCamp, setIsLeavingCamp] = useState(false);
 
@@ -131,6 +171,25 @@ export default function CampPage() {
       }
     };
   }, []);
+  useEffect(() => {
+  const query = newParticipantUserName.trim();
+  if (query.length < 2) {
+    setParticipantSearchResults([]);
+    setParticipantSearchOpen(false);
+    return;
+  }
+  const delay = setTimeout(async () => {
+    const { data: members } = await db.from("Member").select("userName").ilike("userName", `%${query}%`).limit(5);
+    if (!members || members.length === 0) { setParticipantSearchResults([]); setParticipantSearchOpen(false); return; }
+    const userNames = members.map((m: any) => m.userName);
+    const { data: profiles } = await db.from("Profile").select("pruserName, profilePic").in("pruserName", userNames);
+    const profileMap = new Map((profiles || []).map((p: any) => [p.pruserName, p.profilePic]));
+    setParticipantSearchResults(members.map((m: any) => ({ userName: m.userName, profilePic: profileMap.get(m.userName) || null })));
+    setParticipantSearchOpen(true);
+  }, 300);
+  return () => clearTimeout(delay);
+}, [newParticipantUserName]);
+
 
   function openInfoDialog(
     title: string,
@@ -836,11 +895,11 @@ export default function CampPage() {
     }
   }
 
-  const dialogStyles = getDialogStyles(systemDialog.variant);
+  const dialogStyles = getDialogStyles(systemDialog?.variant ?? "info");
+
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[# #101726
-] text-white">
+    <div dir="rtl" className="min-h-screen bg-[#101726] text-white">
       <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 sm:gap-5">
           {/* Header */}
@@ -1021,7 +1080,6 @@ export default function CampPage() {
                       >
                         {isAddingParticipant ? "جاري الإضافة..." : "إضافة"}
                       </button>
-
                       <input
                         type="text"
                         value={newParticipantUserName}
@@ -1030,6 +1088,27 @@ export default function CampPage() {
                         className="flex-1 rounded-2xl border border-purple-500/40 bg-[#120b22] px-4 py-3 text-right text-sm outline-none placeholder:text-gray-400"
                       />
                     </div>
+
+                    {participantSearchOpen && participantSearchResults.length > 0 && (
+                      <div className="mt-1 bg-[#120b22] border border-purple-500/40 rounded-xl overflow-hidden">
+                        {participantSearchResults.map((u) => (
+                          <div
+                            key={u.userName}
+                            onClick={() => {
+                              setNewParticipantUserName(u.userName);
+                              setParticipantSearchOpen(false);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 hover:bg-purple-500/20 cursor-pointer"
+                          >
+                            <img
+                              src={u.profilePic || "/images/avatars/avatar1.png"}
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                            <span className="text-sm text-purple-100">{u.userName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1138,9 +1217,15 @@ export default function CampPage() {
                         <div
                           className={`w-fit min-w-[110px] rounded-2xl px-3 py-3 shadow-[0_8px_25px_rgba(0,0,0,0.22)] sm:min-w-[120px] sm:px-4 ${
                             isMine
-                              ? "rounded-bl-md bg-[#B794F6] text-white"
+                              ? "rounded-bl-md text-white"
                               : "rounded-br-md border border-white/10 bg-[#1b1330]/95 text-white"
                           }`}
+                          style={isMine ? {
+                            background: "linear-gradient(135deg, rgba(114, 46, 209, 0.9) 0%, rgba(18, 8, 42, 0.95) 100%)",
+                            border: "1.5px solid #B37FEB",
+                            boxShadow: "0 0 20px rgba(114, 46, 209, 0.4), inset 0 0 10px rgba(41, 255, 100, 0.1)",
+                          } : undefined}
+
                         >
                           {!isSameSenderAsPrev && (
                             <div
