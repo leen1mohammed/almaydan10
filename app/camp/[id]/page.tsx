@@ -633,7 +633,7 @@ export default function CampPage() {
 
     try {
       if (targetUserName.toLowerCase() === currentUserName.toLowerCase()) {
-        openInfoDialog("تنبيه", "أنتِ موجودة أصلًا داخل المعسكر.", "info");
+        openInfoDialog("تنبيه", "أنت موجود أصلًا داخل المعسكر.", "info");
         return;
       }
 
