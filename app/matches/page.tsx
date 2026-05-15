@@ -216,10 +216,6 @@ export default function MatchesPage() {
         }
       }
 
-      if (user.email === "janonah1166@gmail.com") {
-        setIsAdmin(true);
-        setAdminUserName(userName || "admin");
-      }
     }
 
     checkAdmin();

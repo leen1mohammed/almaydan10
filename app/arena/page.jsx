@@ -13,6 +13,8 @@ export default function ArenaPage() {
   const [role,setRole]=useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newArena, setNewArena] = useState({ name: '', description: '', image: '', logo: '' });
+  const [errorMsg, setErrorMsg] = useState(""); // لتخزين رسالة الخطأ المباشرة
+  const [isCreating, setIsCreating] = useState(false); // حالة خاصة لزر الإنشاء فقط 
 
  const loadArenas = async () => {
       try {
@@ -46,20 +48,18 @@ export default function ArenaPage() {
 useEffect(() => {
 
     loadArenas();
-     // 2. إعداد "المستمع" اللحظي (Realtime Subscription)
   const channel = supabase
-    .channel('arena-updates') // اسم القناة (أي اسم من عندك)
+    .channel('arena-updates')
     .on(
       'postgres_changes', 
       { event: '*', schema: 'public', table: 'Arena' }, 
       (payload) => {
         console.log('تغيير جديد في الميدان!', payload);
-        loadArenas(); // بمجرد ما يحس بتغيير، يحدث القائمة عند اليوزر فوراً
+        loadArenas();
       }
     )
     .subscribe();
 
-  // 3. تنظيف المستمع عند الخروج من الصفحة
   return () => {
     supabase.removeChannel(channel);
   };
@@ -72,19 +72,24 @@ useEffect(() => {
   setArenas(prev => prev.filter(a => a.name !== arenaName));
   };
 
-  const handleCreateSubmit = async () => {
+  
 
-  setLoading(true); // اختياري: عشان تظهر حالة تحميل
-  console.log("بدا الانشاء ...")
-  console.log("الملف المختار", newArena.imageFile)
+  const handleCreateSubmit = async () => {
+  setErrorMsg(""); // تصغير الرسالة عند المحاولة من جديد
+  
+  // التحقق من أن كل الحقول ممتلئة
+  if (!newArena.name || !newArena.description || !newArena.imageFile || !newArena.logoFile) {
+    setErrorMsg("لازم تكمل كل البيانات (الاسم، الوصف، الصورة، والشعار)");
+    return;
+  }
+
+  setIsCreating(true); // نبدأ حالة الإنشاء للزر
   
   try {
-    console.log(" جاري استدعاء دالة الرفع...")
     // 1. رفع صورة الخلفية
     let imageUrl = "";
     if (newArena.imageFile) {
       const upload = await arenaService.uploadImage(newArena.imageFile);
-      console.log("نتيجة الرفع ", upload)
       if (upload.success) imageUrl = upload.url;
     }
 
@@ -94,23 +99,24 @@ useEffect(() => {
       const upload = await arenaService.uploadImage(newArena.logoFile);
       if (upload.success) logoUrl = upload.url;
     }
-    // 3. حفظ الساحة في الداتابيز بالروابط الجديدة
+
+    // 3. حفظ الساحة
     const result = await arenaService.createArena({
       name: newArena.name,
       description: newArena.description,
-      image: imageUrl, // الرابط اللي جابه الكود أوتوماتيكياً
+      image: imageUrl,
       logo: logoUrl
     });
 
     if (result.success) {
-      alert("تم الإنشاء والرفع بنجاح! 🚀");
       setShowCreateModal(false);
-      loadArenas(); // تحديث القائمة فورا
+      setNewArena({ name: '', description: '', image: '', logo: '' }); // تصفير الفورم
+      loadArenas();
     }
   } catch (error) {
-    alert("فشل الرفع: " + error.message);
+    setErrorMsg("حدث خطأ أثناء الإنشاء: " + error.message);
   } finally {
-    setLoading(false);
+    setIsCreating(false); // انتهاء التحميل
   }
 };
 
@@ -186,7 +192,7 @@ useEffect(() => {
   {/* 1. زر إنشاء ساحة جديدة (+): للأدمن فقط */}
     {role === 'admin' && (
       <button 
-        onClick={() => setShowCreateModal(true)} // بنجهز المودال لاحقاً
+        onClick={() => setShowCreateModal(true)}
         className="flex items-center justify-center w-12 h-12 rounded-full text-[#29FF64] 
         text-4xl font-light hover:bg-[#29FF64]/10 transition-all duration-300"
         title="إنشاء ساحة جديدة"
@@ -360,14 +366,37 @@ useEffect(() => {
           />
         </div>
 
-        <button 
-          onClick={handleCreateSubmit}
-          className="flex  justify-center mx-auto w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all 
-        duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
-        border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]"
-        >
-         انشاء الساحة
-        </button>
+        {/* رسالة الخطأ Inline - تظهر فقط عند وجود خطأ */}
+          {errorMsg && (
+            <p className="text-[#FF27F0] text-center text-sm mt-2 animate-pulse font-bold"
+                style={{ textShadow: '0 0 10px rgba(255,39,240,0.5)' }}>
+              {errorMsg}
+            </p>
+          )}
+
+          <button 
+            onClick={handleCreateSubmit}
+            disabled={isCreating} // تعطيل الزر أثناء التحميل لمنع التكرار
+            className={`flex justify-center mx-auto w-[201px] py-2 px-4 rounded-[30px] border-[1.4px] transition-all 
+              duration-500 font-['Cairo'] font-[1000] text-[16px] text-white shadow-[0_2px_2px_0_#000] 
+              ${isCreating ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}
+              border-[#B37FEB] shadow-[0_0_16px_0_rgba(146,84,222,0.32)]`}
+            style={{
+              background: isCreating 
+                ? 'linear-gradient(90deg, #12082A 0%, #12082A 100%)' 
+                : 'linear-gradient(319deg, rgba(255, 255, 255, 0.8) 11.46%, rgba(255, 255, 255, 0.8) 34.44%, rgba(255, 255, 255, 0) 66.52%, rgba(255, 255, 255, 0.8) 94.3%), #12082A',
+              backgroundBlendMode: 'soft-light, normal'
+            }}
+          >
+            {isCreating ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>جاري الإنشاء...</span>
+              </div>
+            ) : (
+              "إنشاء الساحة"
+            )}
+          </button>
       </div>
     </div>
   </div>
