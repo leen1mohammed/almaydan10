@@ -63,7 +63,23 @@ export default function CampPage() {
           router.replace(`/camp/${membership.campId}`);
           return;
         }
+        const { data: ownedCamp } = await supabase
+        .from("Camp")
+        .select("id")
+        .eq("creatorUser", userName)
+      .maybeSingle();
 
+if (!mounted) return;
+
+if (ownedCamp?.id) {
+  await supabase.from("CampParticipants").insert([{
+    campId: ownedCamp.id,
+    pUserName: userName,
+    joinedAt: new Date().toISOString(),
+  }]);
+  router.replace(`/camp/${ownedCamp.id}`);
+  return;
+}        
         setHasCamp(false);
       } catch {
         router.replace("/");
