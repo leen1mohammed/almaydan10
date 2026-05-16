@@ -82,7 +82,7 @@ export default function Navbar() {
         {/* CENTER: Links (Centered perfectly) */}
         {/* ======================================================= */}
         <div className="hidden lg:flex items-center justify-center justify-self-center text-[14px] font-normal leading-[16px]">
-          <Link
+         <Link
   href="/matches?tab=upcoming&sa=0"
   className="hover:text-esport-primary transition-colors whitespace-nowrap"
 >
@@ -92,12 +92,13 @@ export default function Navbar() {
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />
 
           <Link
-  href="/live"
-  className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap"
+href="/matches?tab=live&sa=0"
+className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap"
 >
-  <LiveDotSVG />
-  <span>الآن</span>
+<LiveDotSVG />
+<span>الآن</span>
 </Link>
+
 
 
           <div className="mx-5 w-[1px] h-[25px] bg-esport-divider" />

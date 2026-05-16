@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { useSearchParams } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import { MatchStatus, Match } from "@/types/match";
 import { supabase } from "@/lib/supabase";
@@ -83,25 +83,24 @@ function isStreamAllowed(status: MatchStatus) {
 }
 
 export default function MatchesPage() {
+  const searchParams = useSearchParams();
   const [filter, setFilter] = useState<Filter>(() => {
-    if (typeof window === "undefined") return "LIVE";
+  if (typeof window === "undefined") return "UPCOMING";
 
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
 
-    if (tab === "past") return "FINISHED";
-    if (tab === "live") return "LIVE";
-    if (tab === "upcoming") return "UPCOMING";
-
-    return "LIVE";
-  });
-
+  if (tab === "live") return "LIVE";
+  if (tab === "past") return "FINISHED";
+  return "UPCOMING";
+});
   const [onlySaudi, setOnlySaudi] = useState(() => {
     if (typeof window === "undefined") return false;
 
     const params = new URLSearchParams(window.location.search);
     return params.get("sa") === "1";
   });
+  const [urlReady, setUrlReady] = useState(false);
 
   const [matches, setMatches] = useState<MatchWithSource[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,6 +113,7 @@ export default function MatchesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [manualForm, setManualForm] =
     useState<ManualMatchForm>(emptyManualForm);
+
   const [savingManual, setSavingManual] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -141,8 +141,10 @@ export default function MatchesPage() {
     };
 
 
-  const tab = tabMap[filter];
-  const requestedSize = filter === "FINISHED" ? 20 : 30;
+
+    const tab = tabMap[filter];
+    const requestedSize = filter === "FINISHED" ? 20 : 30;
+
 
   // Update URL parameters to reflect current filter (for navigation/state)
     if (typeof window !== "undefined") {
@@ -220,10 +222,26 @@ export default function MatchesPage() {
 
     checkAdmin();
   }, []);
+  useEffect(() => {
+  const tab = searchParams.get("tab");
+  const sa = searchParams.get("sa");
+
+  if (tab === "live") {
+    setFilter("LIVE");
+  } else if (tab === "past") {
+    setFilter("FINISHED");
+  } else {
+    setFilter("UPCOMING");
+  }
+
+  setOnlySaudi(sa === "1");
+  setUrlReady(true);
+}, [searchParams]);
 
   useEffect(() => {
     loadMatches();
   }, [filter, onlySaudi]);
+>>>>>>> 6d47f6d (final project updates)
 
   async function uploadTeamLogo(file: File, team: "a" | "b") {
     const fileExt = file.name.split(".").pop();
@@ -240,7 +258,9 @@ export default function MatchesPage() {
       console.error(error);
       showToast(
         "error",
-        team === "a" ? "فشل رفع شعار الفريق الأول" : "فشل رفع شعار الفريق الثاني"
+        team === "a"
+          ? "فشل رفع شعار الفريق الأول"
+          : "فشل رفع شعار الفريق الثاني"
       );
       return;
     }
@@ -254,7 +274,9 @@ export default function MatchesPage() {
 
     showToast(
       "success",
-      team === "a" ? "تم رفع شعار الفريق الأول" : "تم رفع شعار الفريق الثاني"
+      team === "a"
+        ? "تم رفع شعار الفريق الأول"
+        : "تم رفع شعار الفريق الثاني"
     );
   }
 
@@ -347,13 +369,7 @@ export default function MatchesPage() {
   async function handleDeleteMatch(match: MatchWithSource) {
     if (!isAdmin) return;
 
-  const source =
-  match.source === "manual" ? "manual" : "api";
-  console.log("DELETE MATCH:", {
-  id: match.id,
-  source,
-  match,
-});
+    const source = match.source === "manual" ? "manual" : "api";
 
     try {
       setDeletingId(match.id);
@@ -381,10 +397,10 @@ export default function MatchesPage() {
         return;
       }
 
-     setMatches((prev) => prev.filter((item) => item.id !== match.id));
-setConfirmDeleteMatch(null);
-showToast("success", "تم حذف المباراة بنجاح");
-await loadMatches();
+      setMatches((prev) => prev.filter((item) => item.id !== match.id));
+      setConfirmDeleteMatch(null);
+      showToast("success", "تم حذف المباراة بنجاح");
+      await loadMatches();
     } catch (error) {
       showToast(
         "error",
@@ -455,17 +471,21 @@ await loadMatches();
           </div>
         )}
 
-        {/* التبويبات */}
         <div className="mb-6 flex flex-wrap justify-center gap-4">
           {tabs.map((tab) => {
-            const active = filter === tab.id;
+           const currentTab = searchParams.get("tab");
+
+const active =
+  (currentTab === "live" && tab.id === "LIVE") ||
+  (currentTab === "past" && tab.id === "FINISHED") ||
+  ((currentTab === "upcoming" || !currentTab) &&
+    tab.id === "UPCOMING");
 
             return (
               <button
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
-                className="rounded-[30px] border-[1.4px] border-[#B37FEB] px-13 py-2 text-[16px] font-bold text-white transition-all 
-                duration-300 shadow-[0_2px_2px_#000,0_0_16px_rgba(146,84,222,0.32)] hover:scale-[1.02]"
+                className="rounded-[30px] border-[1.4px] border-[#B37FEB] px-13 py-2 text-[16px] font-bold text-white transition-all duration-300 shadow-[0_2px_2px_#000,0_0_16px_rgba(146,84,222,0.32)] hover:scale-[1.02]"
                 style={{
                   background: active
                     ? "linear-gradient(319deg, rgba(255,255,255,0.80) 11.46%, rgba(255,255,255,0.80) 34.44%, rgba(255,255,255,0.00) 66.52%, rgba(255,255,255,0.80) 94.3%, rgba(255,255,255,0.80) 94.31%), #12082A"
@@ -480,7 +500,6 @@ await loadMatches();
           })}
         </div>
 
-        {/* أدوات التحكم */}
         <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
           {isAdmin && (
             <div className="relative">
@@ -496,8 +515,6 @@ await loadMatches();
                   <div className="mb-3 text-sm font-bold text-white">
                     إدارة المباريات
                   </div>
-
-                  
 
                   <button
                     onClick={() => {
@@ -813,24 +830,14 @@ await loadMatches();
             <p className="animate-pulse text-2xl">جاري تحميل المباريات ...</p>
           </main>
         ) : (
-<div className="grid grid-cols-1 place-items-center gap-8 pb-32 md:grid-cols-2">            {matches.map((match) => (
+          <div className="grid grid-cols-1 place-items-center gap-8 pb-32 md:grid-cols-2">
+            {matches.map((match) => (
               <div key={match.id} className="relative w-full">
                 {isAdmin && (
                   <button
                     onClick={() => setConfirmDeleteMatch(match)}
                     disabled={deletingId === match.id}
-                    className="
-  absolute left-[18px] top-[18px] z-40
-  flex h-[34px] w-[34px] items-center justify-center
-  rounded-full
-  border border-red-200/50
-  bg-gradient-to-br from-red-400 to-red-600
-  text-[22px] font-black text-white
-  shadow-[0_0_16px_rgba(239,68,68,0.65)]
-  transition-all duration-200
-  hover:scale-110 hover:rotate-90
-  disabled:opacity-60
-"
+                    className="absolute left-[18px] top-[18px] z-40 flex h-[34px] w-[34px] items-center justify-center rounded-full border border-red-200/50 bg-gradient-to-br from-red-400 to-red-600 text-[22px] font-black text-white shadow-[0_0_16px_rgba(239,68,68,0.65)] transition-all duration-200 hover:scale-110 hover:rotate-90 disabled:opacity-60"
                     title="حذف المباراة"
                   >
                     {deletingId === match.id ? "…" : "×"}
