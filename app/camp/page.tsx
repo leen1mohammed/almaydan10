@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
+import useSound from "use-sound";
 
 export default function CampPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [hasCamp, setHasCamp] = useState(false);
+
+  const [playCampEnter] = useSound("/sounds/camp-enter.mp3", {
+    volume: 0.5,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -60,26 +65,41 @@ export default function CampPage() {
         if (!mounted) return;
 
         if (membership?.campId) {
-          router.replace(`/camp/${membership.campId}`);
+          playCampEnter();
+
+          setTimeout(() => {
+            router.replace(`/camp/${membership.campId}`);
+          }, 300);
+
           return;
         }
+
         const { data: ownedCamp } = await supabase
-        .from("Camp")
-        .select("id")
-        .eq("creatorUser", userName)
-      .maybeSingle();
+          .from("Camp")
+          .select("id")
+          .eq("creatorUser", userName)
+          .maybeSingle();
 
-if (!mounted) return;
+        if (!mounted) return;
 
-if (ownedCamp?.id) {
-  await supabase.from("CampParticipants").insert([{
-    campId: ownedCamp.id,
-    pUserName: userName,
-    joinedAt: new Date().toISOString(),
-  }]);
-  router.replace(`/camp/${ownedCamp.id}`);
-  return;
-}        
+        if (ownedCamp?.id) {
+          await supabase.from("CampParticipants").insert([
+            {
+              campId: ownedCamp.id,
+              pUserName: userName,
+              joinedAt: new Date().toISOString(),
+            },
+          ]);
+
+          playCampEnter();
+
+          setTimeout(() => {
+            router.replace(`/camp/${ownedCamp.id}`);
+          }, 300);
+
+          return;
+        }
+
         setHasCamp(false);
       } catch {
         router.replace("/");
@@ -95,7 +115,7 @@ if (ownedCamp?.id) {
     return () => {
       mounted = false;
     };
-  }, [router]);
+  }, [router, playCampEnter]);
 
   if (loading) {
     return (

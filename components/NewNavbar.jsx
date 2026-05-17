@@ -166,23 +166,17 @@ useEffect(() => {
 
         {/* CENTER: Links - الآن تظهر في الموبايل تحت بعض وفي اللاب توب بجانب بعض */}
         <div className="flex flex-wrap items-center justify-center gap-4 text-[14px] font-normal leading-[16px]">
-          <a
-  href="/matches?tab=upcoming&sa=0"
-  className="hover:text-esport-primary transition-colors whitespace-nowrap"
->
-  جدول المباريات
-</a>
+          <Link href="/matches" className="hover:text-esport-primary transition-colors whitespace-nowrap">
+            جدول المباريات
+          </Link>
           
           {/* الفواصل تختفي في الشاشات الصغيرة عشان ما تخرب المنظر */}
           <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
           
-         <a
-  href="/matches?tab=live&sa=0"
-  className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap"
->
-  <LiveDotSVG />
-  <span>الآن</span>
-</a>
+          <Link href="/live" className="flex items-center gap-2 hover:text-esport-primary transition-colors whitespace-nowrap">
+            <LiveDotSVG />
+            <span>الآن</span>
+          </Link>
           
           <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
           
@@ -193,18 +187,9 @@ useEffect(() => {
           {!isAdmin && (
             <>
               <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
-              <button
-  onClick={() => {
-    const audio = new Audio("/sounds/camp-enter.mp3");
-    audio.volume = 0.5; 
-    audio.play();
-
-    handleProtectedAction("/camp");
-  }}
-  className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent"
->
-  المعسكر
-</button>
+              <button onClick={() => handleProtectedAction("/camp")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
+                المعسكر
+              </button>
             </>
           )}
           

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/authService";
+import useSound from "use-sound";
 
 const db: any = supabase;
 
@@ -137,6 +138,10 @@ export default function CampPage() {
     confirmText: "حسنًا",
     cancelText: "إلغاء",
     isLoading: false,
+  });
+
+  const [playCampEnter] = useSound("/sounds/camp-enter.mp3", {
+  volume: 0.5,
   });
 
   const confirmResolverRef = useRef<((value: boolean) => void) | null>(null);
@@ -473,7 +478,7 @@ export default function CampPage() {
 
   useEffect(() => {
     if (!campId) return;
-
+    playCampEnter();
     let alive = true;
 
     const fetchData = async () => {
