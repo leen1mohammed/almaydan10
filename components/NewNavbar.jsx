@@ -187,9 +187,18 @@ useEffect(() => {
           {!isAdmin && (
             <>
               <div className="hidden lg:block w-[1px] h-[25px] bg-esport-divider" />
-              <button onClick={() => handleProtectedAction("/camp")} className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent">
-                المعسكر
-              </button>
+              <button
+  onClick={() => {
+    const audio = new Audio("/sounds/camp-enter.mp3");
+    audio.volume = 0.5; 
+    audio.play();
+
+    handleProtectedAction("/camp");
+  }}
+  className="hover:text-esport-primary transition-colors whitespace-nowrap bg-transparent"
+>
+  المعسكر
+</button>
             </>
           )}
           
