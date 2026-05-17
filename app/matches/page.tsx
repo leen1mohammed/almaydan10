@@ -147,13 +147,7 @@ export default function MatchesPage() {
 
 
   // Update URL parameters to reflect current filter (for navigation/state)
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", tab);
-      url.searchParams.set("sa", onlySaudi ? "1" : "0");
-      window.history.replaceState({}, "", url.toString());
-    }
-
+   
     setLoading(true);
     setErrorMsg(null);
 
@@ -241,7 +235,7 @@ export default function MatchesPage() {
   useEffect(() => {
     loadMatches();
   }, [filter, onlySaudi]);
->>>>>>> 6d47f6d (final project updates)
+
 
   async function uploadTeamLogo(file: File, team: "a" | "b") {
     const fileExt = file.name.split(".").pop();
@@ -484,7 +478,14 @@ const active =
             return (
               <button
                 key={tab.id}
-                onClick={() => setFilter(tab.id)}
+               onClick={() => {
+  setFilter(tab.id);
+
+  const nextTab =
+    tab.id === "LIVE" ? "live" : tab.id === "FINISHED" ? "past" : "upcoming";
+
+  window.location.href = `/matches?tab=${nextTab}&sa=${onlySaudi ? "1" : "0"}`;
+}}
                 className="rounded-[30px] border-[1.4px] border-[#B37FEB] px-13 py-2 text-[16px] font-bold text-white transition-all duration-300 shadow-[0_2px_2px_#000,0_0_16px_rgba(146,84,222,0.32)] hover:scale-[1.02]"
                 style={{
                   background: active
