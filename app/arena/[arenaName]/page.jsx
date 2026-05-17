@@ -24,7 +24,6 @@ export default function ArenaDetailsPage() {
   const [floatingEmojis, setFloatingEmojis] = useState([]);
   const [playPop] = useSound('/sounds/reaction-pop.mp3', { volume: 0.5 });
   const [playSwordEntrance] = useSound('/sounds/sword-entrance.mp3', { volume: 0.4 });
-  // أضيفي هذا الـ State في بداية المكون
   const [otherArenasBubbles, setOtherArenasBubbles] = useState([
   { id: 1, top: '75%', left: '20px', color: '#29FF64' },
   { id: 2, top: '80%', left: '99px', color: '#FF27F0' }, // هذي مدفوعة لليمين شوي بس لسه في منطقة اليسار
@@ -220,9 +219,9 @@ const triggerFloatingEmoji = (emoji) => {
   };
 
   const handleLeave = async () => {
-  const confirmLeave = window.confirm("متأكد تبغى تغادر الساحة؟");
+  //const confirmLeave = window.confirm("متأكد تبغى تغادر الساحة؟");
   
-  if (confirmLeave) {
+  //if (confirmLeave) {
     try {
       // حركة الفزعة: لو الـ user لسه null، نحاول نجيبه مباشرة من السيرفس
       let currentUser = user;
@@ -239,13 +238,12 @@ const triggerFloatingEmoji = (emoji) => {
       const result = await arenaService.leaveArena(currentUser.userName, decodedName);
       
       if (result.success) {
-        alert("تم الخروج بنجاح! ننتظرك ترجع لنا أقوى 🫡");
         router.push('/arena');
       }
     } catch (error) {
       console.error("خطأ تقني:", error.message);
     }
-  }
+  //}
 };
 
 useEffect(() => {
@@ -270,10 +268,8 @@ useEffect(() => {
     }
   };
 
-  // نشغلها أول ما تفتح الصفحة
   updateOtherActivity();
 
-  // ونحدثها كل 30 ثانية عشان ما نضغط على الداتابيز
   const interval = setInterval(updateOtherActivity, 30000);
   return () => clearInterval(interval);
 }, [decodedName]);
@@ -389,7 +385,6 @@ if (isTop) {
 
   const angle = (indexInLayer / perLayer) * 2 * Math.PI;
 
-  // 🔥 نخليه أعرض أفقيًا
   const baseRadius = 100;
   const layerGap = 110;
 
@@ -397,15 +392,13 @@ if (isTop) {
 
 const radiusX = (baseRadius + layer * layerGap) * sizeFactor + 4;
 const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
-  // 🔥 عشوائية خفيفة (تعطي شكل كلاود)
-  const randomOffset = (Math.random() - 0.5) * 30;
+const randomOffset = (Math.random() - 0.5) * 30;
 
   pos = {
     top: `calc(50% + ${Math.sin(angle) * radiusY + randomOffset}px)`,
     left: `calc(50% + ${Math.cos(angle) * radiusX + randomOffset}px)`
   };
 }
-    // ⭐ أهم كلمة
     return (
       <span 
         key={i}
@@ -414,7 +407,6 @@ const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
           top: pos.top,
           left: pos.left,
 
-          // ⭐ الحل هنا
           transform: 'translate(-50%, -50%)',
 
           fontSize: `${isTop ? 80 : Math.min(72, 12 + count * 11)}px`,
@@ -549,9 +541,9 @@ const radiusY = ((baseRadius + layer * layerGap) * 0.3) * sizeFactor;
         key={e.id}
         initial={{ y: '100vh', opacity: 0, x: e.xOffset, scale: 0.5 }}
         animate={{ 
-          y: '-10vh', // يطير من تحت لفوق تماماً
-          opacity: [0, 1, 1, 0], // يظهر ثم يثبت ثم يتلاشى
-          x: e.xOffset + (Math.random() * 50 - 25), // تمايل خفيف
+          y: '-10vh',
+          opacity: [0, 1, 1, 0],
+          x: e.xOffset + (Math.random() * 50 - 25),
           scale: [0.5, 1.5, 1.2],
           rotate: Math.random() * 40 - 20
         }}

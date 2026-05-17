@@ -284,39 +284,14 @@ export default function CampPage() {
         .eq("pUserName", userName)
         .maybeSingle()
     );
-
-    if (membershipError) {
-
-      console.error("Membership Error:", membershipError);
-
-      openInfoDialog(
-        "خطأ في التحقق",
-        "حدث خطأ أثناء التحقق من العضوية.",
-        "error"
-      );
-
-      return false;
-    }
-
-    if (!membership) {
-
-      console.log("NO MEMBERSHIP FOUND", {
-        cId,
-        userName,
-      });
-
-      openInfoDialog(
-        "غير مسموح",
-        "لا تملك صلاحية الوصول إلى هذا المعسكر.",
-        "error"
-      );
-
+    if (membershipError || !membership) {
+      openInfoDialog("غير مسموح", "لا تملك صلاحية الوصول إلى هذا المعسكر.", "error");
       router.push("/camp");
-
-      return false;
+     return false;
     }
 
-    return true;
+  return true;
+
   }
 
   async function enrichMembersWithProfilePictures(
@@ -643,9 +618,6 @@ export default function CampPage() {
       const senderUser = await getUserNameOrRedirect();
       if (!senderUser) return;
 
-      const allowed = await assertMembershipOrRedirect(campId, senderUser);
-      if (!allowed) return;
-
       const payload = {
         body,
         senderUser,
@@ -696,17 +668,17 @@ export default function CampPage() {
         return;
       }
 
-      const { data: participantRow, error: participantError } = await sb(
-        "Participant: validate target user exists",
-        db.from("Participant").select("PuserName").eq("PuserName", targetUserName).maybeSingle()
+      const { data: memberRow, error: memberError } = await sb(
+        "Member: validate target user exists",
+        db.from("Member").select("userName").eq("userName", targetUserName).maybeSingle()
       );
 
-      if (participantError) {
+      if (memberError) {
         openInfoDialog("تعذر التحقق", "تعذر التحقق من المستخدم.", "error");
         return;
       }
 
-      if (!participantRow) {
+      if (!memberRow) {
         openInfoDialog("غير موجود", "هذا المستخدم غير موجود ضمن حسابات المشاركين.", "error");
         return;
       }
@@ -1110,6 +1082,7 @@ export default function CampPage() {
                       </div>
                     )}
                   </div>
+
                 )}
 
                 {members.length === 0 ? (

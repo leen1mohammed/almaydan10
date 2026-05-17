@@ -44,15 +44,43 @@ function gameLabel(game: string) {
     case "valorant":
       return "Valorant";
     case "league-of-legends":
+    case "lol":
       return "League of Legends";
     case "fc24":
+    case "fifa":
+    case "ea-sports-fc-24":
       return "FC 24";
     case "csgo":
+    case "cs2":
+    case "cs-go":
+    case "counter-strike":
       return "Counter-Strike";
     case "pubg":
       return "PUBG";
-    default:
+    case "dota2":
+    case "dota-2":
+      return "Dota 2";
+    case "call-of-duty":
+    case "cod":
+    case "codmw":
+    case "callofduty_bravo":
+    case "call-of-duty-modern-warfare":
       return "Call of Duty";
+    case "warzone":
+    case "call-of-duty-warzone":
+      return "Call of Duty: Warzone";
+    case "rocketleague":
+    case "rocket-league":
+      return "Rocket League";
+    case "overwatch":
+      return "Overwatch";
+    case "apex":
+    case "apex-legends":
+      return "Apex Legends";
+    case "fortnite":
+      return "Fortnite";
+    default:
+      return "Esports";
   }
 }
 

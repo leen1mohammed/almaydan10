@@ -78,8 +78,23 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
     value === "rocket-league"
   ) return "rocketleague";
 
-  if (value.includes("call of duty") && value.includes("warzone")) return "warzone";
-  if (value.includes("call of duty")) return "call-of-duty";
+  if (
+  value.includes("warzone") ||
+  value.includes("callofduty_warzone") ||
+  value.includes("call-of-duty-warzone")
+) {
+  return "warzone";
+}
+
+if (
+  value.includes("call of duty") ||
+  value.includes("call-of-duty") ||
+  value.includes("callofduty") ||
+  value.includes("cod") ||
+  value.includes("bravo")
+) {
+  return "call-of-duty";
+}
 
   if (
     value.includes("fc 24") ||
@@ -91,6 +106,17 @@ function normalizeGameType(slug?: string | null, name?: string | null) {
 
   if (value === "kog") return "kog";
   if (value === "starcraft-2" || value.includes("starcraft")) return "starcraft-2";
+
+  if (
+  value.includes("callofduty") ||
+  value.includes("call_of_duty") ||
+  value.includes("cod") ||
+  value.includes("bravo") ||
+  value.includes("call of duty") ||
+  value.includes("call-of-duty")
+) {
+  return "call-of-duty";
+}
 
   return "default";
 }

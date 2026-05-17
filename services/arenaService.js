@@ -219,7 +219,7 @@ export const arenaService = {
 createArena: async (arenaData) => {
   try {
     const { data, error } = await supabase
-      .from('Arena') // تأكدي من اسم الجدول عندك (Arena أو Arenas)
+      .from('Arena')
       .insert([
         { 
           name: arenaData.name, 

@@ -373,7 +373,7 @@ export default function MatchCard({ match }: { match: Match }) {
                     transition hover:scale-[1.04] hover:bg-purple-500]
                   "
                 >
-                  شاهد التسجيل
+                   ملخص المباراة
                 </Link>
               </div>
             )}

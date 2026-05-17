@@ -28,7 +28,7 @@ export default function ArenaCard({ name, image, logo,playerCount,playerAvatars,
     const currentUser = await authService.getCurrentUser();
     
     if (!currentUser) {
-      alert("لازم تسجل دخول أول يا بطل! 🏆");
+      alert("لازم تسجل دخول أول");
       router.push("/login");
       return;
     }
@@ -37,7 +37,6 @@ export default function ArenaCard({ name, image, logo,playerCount,playerAvatars,
     const result = await arenaService.joinArena(currentUser.userName, name);
     
     if (result.success) {
-      alert(`كفو! تم انضمامك لـ ${name} بنجاح 🔥`);
       // 3. تحديث الصفحة عشان يظهر زر "دخول" بدل "انضمام"
       window.location.reload(); 
     }
@@ -50,7 +49,6 @@ export default function ArenaCard({ name, image, logo,playerCount,playerAvatars,
 const handleDelete = async (arenaName) => {
   const result = await arenaService.deleteArena(arenaName);
   if (result.success) {
-    alert("تم مسح الساحة من الميدان!");
     //window.location.reload(); 
     if (onDeleteSuccess){
       onDeleteSuccess(arenaName)
@@ -175,9 +173,8 @@ const handleDelete = async (arenaName) => {
       <button 
         onClick={(e) => {
           e.stopPropagation();
-          if(confirm(`هل أنتِ متأكدة من حذف ساحة ${name}؟`)) {
              handleDelete(name);
-          }
+      
         }}
         className="btn-base btn-red !w-[155px]"
       >
