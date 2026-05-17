@@ -220,12 +220,11 @@ export async function GET(request: Request) {
         `&sort=begin_at` +
         `&page[size]=100`;
     } else {
-      url =
-        `https://api.pandascore.co/matches` +
-        `?filter[status]=running` +
-        `&sort=begin_at` +
-        `&page[size]=100`;
-    }
+  url =
+    `https://api.pandascore.co/matches/running` +
+    `?sort=begin_at` +
+    `&page[size]=100`;
+}
 
     const res = await fetch(url, {
       headers: {
@@ -246,6 +245,20 @@ export async function GET(request: Request) {
     }
 
     const data: PandaMatch[] = await res.json();
+    console.log("PANDASCORE URL:", url);
+console.log("RAW COUNT:", Array.isArray(data) ? data.length : "not array");
+console.log(
+  "RAW STATUSES:",
+  Array.isArray(data)
+    ? data.slice(0, 10).map((m) => ({
+        id: m.id,
+        status: m.status,
+        begin_at: m.begin_at,
+        game: m.videogame?.slug || m.videogame?.name,
+        teams: m.opponents?.map((o) => o.opponent?.name),
+      }))
+    : data
+);
 
     let matches = (Array.isArray(data) ? data : []).map((match) => {
       const opponents = Array.isArray(match.opponents) ? match.opponents : [];
@@ -355,6 +368,19 @@ export async function GET(request: Request) {
       matches = matches.filter((match) => match.status === "UPCOMING");
     }
 
+    console.log(
+  "LIVE MATCHES DEBUG:",
+  matches.map((m) => ({
+    id: m.id,
+    status: m.status,
+    game: m.game_type,
+    teams: m.teams.map((t) => t.name),
+  }))
+);
+
+if (tab === "live") {
+  matches = matches.filter((match) => match.status === "LIVE");
+}
     if (tab === "live") {
       matches = matches.filter((match) => match.status === "LIVE");
     }
@@ -440,6 +466,10 @@ export async function GET(request: Request) {
           };
         });
 const filteredManualMatches = manualMatches.filter((match) => {
+  if (tab === "live") {
+    return match.status === "LIVE";
+  }
+
   if (!match.start_at) return false;
 
   const matchDate = new Date(match.start_at);
@@ -456,7 +486,6 @@ const filteredManualMatches = manualMatches.filter((match) => {
 
   if (!isWithinDateWindow(match.start_at, tab)) return false;
 
-  if (tab === "live") return match.status === "LIVE";
   if (tab === "upcoming") return match.status === "UPCOMING";
   if (tab === "past") return match.status === "FINISHED";
 
